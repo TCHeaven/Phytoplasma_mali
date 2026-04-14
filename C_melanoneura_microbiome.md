@@ -13,6 +13,8 @@
   3.1 [IDTAXA](#10)
   3.2 [QIIME](#11)
   3.3 [BLASTN](#12)
+  3.4 [Curate](#14)
+4. [Reanalyse Maja data](#13)
 
 ## Collecting data <a name="2"></a>
 Raw sequencing reads were retreived from the archive folder \\share.unibz.it\AppliedMolecularEntomologyLab\cacopsylla_species\Cmelanoneura\amplicon_sequencing16S\macrogen2025 and uploaded to the HPC:
@@ -220,7 +222,7 @@ paired_lookup_table <- data.frame(
   stringsAsFactors = FALSE
 )
 ```
-**Run DADA2 for the different datasets:**
+**Run DADA2:**
 As the reads appear to have very good quality strict settings can be used, truncLen was set to approximate read length post trimming.
 ```R
 #Parameters
@@ -725,16 +727,18 @@ apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barp
 
 apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools view "$ASV_dir"/V4-515f-806r-nimal-distal-gut-taxa-barplot.qzv
 ```
+
 ### BLASTN <a name="12"></a>
 
 BLAST is alignment based, limited by 'best hit' interpretation, and prone to misidentifying short or conserved seqeunces. For eDNA/metabarcoding, BLAST is often too literal — it finds the closest sequence, even if it’s wrong. However, the NCBI nt database is far larger than any dedicated database, including SILVA.
 
 BLASTN vs NCBI nt database:
 ```bash
+#Run BLAST with many hits
 for ASV in $(find /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs -name 'ASVs.fasta' -type f); do
 	Task=blast
 	Database=/data/blobtoolkit/nt/nt
-	Max_target=100000
+	Max_target=9999
 	OutPrefix=$(dirname $ASV | rev | cut -d '/' -f1 | rev)
 	OutDir="$(dirname $ASV)"/"$Task"
 	mkdir -p $OutDir
@@ -748,6 +752,7 @@ for ASV in $(find /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs -name '
 	fi
 done
 
+#Run BLAST for just the top hits
 for ASV in $(find /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs -name 'ASVs.fasta' -type f); do
 	Task=blast
 	Database=/data/blobtoolkit/nt/nt
@@ -765,7 +770,761 @@ for ASV in $(find /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs -name '
 	fi
 done
 
+#Get taxonomy information for hits
 module load anaconda3
 conda activate taxonkit
+wget -c https://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz 
+tar -zxvf taxdump.tar.gz
+mkdir -p $HOME/.taxonkit
+cp names.dmp nodes.dmp delnodes.dmp merged.dmp $HOME/.taxonkit
 
+#Tophit:
+cut -f 2 /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/blast/ASVs.vs.nt.mts1.hsp1.1e25.megablast.out > taxonomy_ids.txt
+taxonkit lineage taxonomy_ids.txt | taxonkit reformat -F -f "{k}\t{p}\t{c}\t{o}\t{f}\t{g}\t{s}" > taxonomic_paths.tsv
+awk -F'\t' -v OFS='\t' 'NR==FNR{gsub(/\r/,"",$0);tax[$1]=$2 OFS $3 OFS $4 OFS $5 OFS $6 OFS $7 OFS $8;next}{gsub(/\r/,"",$0)}FNR==1{print $0,"k","p","c","o","f","g","s";next}{tid=$2;if(tid~/;/)print $0,"","","","","","","";else if(tid in tax)print $0,tax[tid];else print $0,"","","","","","",""}' taxonomic_paths.tsv /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/blast/ASVs.vs.nt.mts1.hsp1.1e25.megablast.out > /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/blast/ASV_16S.megablast.tophit.with_taxonomy.tsv
+
+#Many hits:
+cut -f 2 /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/blast/ASVs.vs.nt.mts9999.hsp1.1e25.megablast.out > taxonomy_ids.txt
+taxonkit lineage taxonomy_ids.txt | taxonkit reformat -F -f "{k}\t{p}\t{c}\t{o}\t{f}\t{g}\t{s}" > taxonomic_paths.tsv
+awk -F'\t' -v OFS='\t' 'NR==FNR{gsub(/\r/,"",$0);tax[$1]=$2 OFS $3 OFS $4 OFS $5 OFS $6 OFS $7 OFS $8;next}{gsub(/\r/,"",$0)}FNR==1{print $0,"k","p","c","o","f","g","s";next}{tid=$2;if(tid~/;/)print $0,"","","","","","","";else if(tid in tax)print $0,tax[tid];else print $0,"","","","","","",""}' taxonomic_paths.tsv /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/blast/ASVs.vs.nt.mts9999.hsp1.1e25.megablast.out > /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/blast/ASV_16S.megablast.9999hits.with_taxonomy.tsv
+
+awk -F'\t' -v OFS='\t' '
+NR==FNR{
+    gsub(/\r/,"",$0);
+    n=split($2, t, ";")    # split taxonomy path by ;
+    for(i=1;i<=8;i++){
+        tax[$1,i] = (i<=n?t[i]:"")   # fill missing with ""
+    }
+    next
+}
+{
+    gsub(/\r/,"",$0)
+}
+FNR==1{
+    print $0,"k","p","c","o","f","g","s"; next
+}
+{
+    tid=$2
+    if(tid~/;/){
+        print $0,"","","","","","",""
+    } else if(tid in tax){
+        out=""
+        for(i=1;i<=8;i++){
+            out = out OFS tax[tid,i]
+        }
+        print $0, out
+    } else {
+        print $0,"","","","","","",""
+    }
+}' taxonomic_paths.tsv /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/blast/ASVs.vs.nt.mts1.hsp1.1e25.megablast.out > /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/blast/ASV_16S.megablast.tophit.with_taxonomy2.tsv
 ```
+### Curate <a name="14"></a>
+Manually edit taxonomy to select the best supported classification accross IDTAXA, QIIME, and BLAST
+```bash
+#re-import
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureData[Taxonomy]' \
+  --input-path /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/ASV_16S.megablast.tophit.with_taxonomy2_edited.tsv.txt \
+  --output-path  /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported.qza \
+  --input-format TSVTaxonomyFormat
+
+#remove organelle hits
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa filter-table \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/qiime_inputs/table.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported.qza \
+  --p-exclude mitochondria,chloroplast \
+  --o-filtered-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast.qza
+
+#Visualise:
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barplot \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported.qza \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/taxa-barplot-no-organelle.qzv
+```
+
+## Reanalyse Maja data <a name="13"></a>
+
+Previous data was generated by starseq with 515F (5′-GTGYCAGCMGCCGCGGTAA-3′) and 806R (5′-GGACTACNVGGGTWTCTAAT-3′) primer pair targeting the V4 region only, 250bp paired reads.
+
+```bash
+#Raw sequencing reads were retreived from the archive folders \\share.unibz.it\AppliedMolecularEntomologyLab\cacopsylla_species\Cmelanoneura\amplicon_sequencing16S\Schuler_et_al_2022\OneDrive_1_30-07-2025\BaseCalls_Schuler_Run1 and \\share.unibz.it\AppliedMolecularEntomologyLab\cacopsylla_species\Cmelanoneura\amplicon_sequencing16S\starseq and uploaded to the HPC:
+
+for file in $(ls /data/users/theaven/C_melanoneura_microbiome/raw_data_maja/*.fastq.gz); do
+ID=$(basename $file | rev | cut -d '_' -f4,5 | rev)
+mkdir $(dirname $file)/$ID
+mv $file $(dirname $file)/$ID/.
+done
+
+#FASTQC
+screen -S melanoneura
+for ReadDir in $(ls -d /data/users/theaven/C_melanoneura_microbiome/raw_data_maja/*); do
+	Task=FastQC
+	ID=$(echo "$ReadDir" | cut -d '/' -f7 | sed 's@/@_@g')
+    Reads=("$ReadDir"/*.fastq.gz)
+	OutDir="$ReadDir"/"$Task"
+	ExpectedOutput="$OutDir"/$(basename "${Reads[0]}" | sed 's@.fastq.gz@@g')_fastqc.html
+
+	Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+	while [ "$Jobs" -gt 9 ]; do
+		sleep 5s
+		printf "."
+		Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+	done
+
+	if [ ! -s "$ExpectedOutput" ]; then
+		jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_fastqc.sh "$OutDir" "${Reads[@]}")
+		printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+	else
+		echo "For $ID found: $ExpectedOutput" 
+	fi
+done
+
+#CUTADAPT
+for ReadDir in $(ls -d /data/users/theaven/C_melanoneura_microbiome/raw_data_maja/*); do
+	Task=CutAdapt
+	ID=$(echo "$ReadDir" | cut -d '/' -f7 | sed 's@/@_@g')
+    Reads=("$ReadDir"/*.fastq.gz)
+	OutDir="$(echo "$ReadDir" | sed 's@raw_data@qc_data@g')/"$Task""
+	Forward_Primer=GTGCCAGCMGCCGCGGTAA
+	Reverse_Primer=GGACTACHVGGGTWTCTAAT
+	ExpectedOutput="$OutDir"/$(basename "${Reads[0]}" | sed 's@.fastq.gz@.trim.fastq.gz@g')
+
+	Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+	while [ "$Jobs" -gt 9 ]; do
+		sleep 5s
+		printf "."
+		Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+	done
+
+	if [ ! -s "$ExpectedOutput" ]; then
+		jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_cutadapt.sh "$OutDir" "$Forward_Primer" "$Reverse_Primer" "${Reads[@]}")
+		printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+	else
+		echo "For $ID found: $ExpectedOutput" 
+	fi
+done
+
+#download files
+for Dir in $(ls -d /data/users/theaven/C_melanoneura_microbiome/qc_data_maja/*/CutAdapt); do
+        Out=/data/users/theaven/download_20260327/paired/$(echo "$Dir" | cut -d '/' -f7)
+        mkdir -p "$Out"
+        cp "$Dir"/*.fastq.gz "$Out"/.
+done
+```
+```R
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(c("dada2","ShortRead", "Biostrings"))
+install.packages("dplyr")
+
+library(dada2)
+library(ShortRead)
+library(Biostrings)
+library(dplyr)
+
+setwd("C:/Users/THeaven/OneDrive - Scientific Network South Tyrol/R")
+set.seed(1)
+
+#Example reads plotted:
+plotQualityProfile("download_20260327/paired/AO3-2_S152/AO3-2_S152_L001_R1_001.trim.fastq.gz") 
+plotQualityProfile("download_20260327/paired/AO3-2_S152/AO3-2_S152_L001_R2_001.trim.fastq.gz") 
+
+plotQualityProfile("download_20260327/paired/Cmel2-10_S188/Cmel2-10_S188_L001_R1_001.trim.fastq.gz") 
+plotQualityProfile("download_20260327/paired/Cmel2-10_S188/Cmel2-10_S188_L001_R2_001.trim.fastq.gz") 
+
+plotQualityProfile("download_20260327/paired/Cmel51-9_S140/Cmel51-9_S140_L001_R1_001.trim.fastq.gz") 
+plotQualityProfile("download_20260327/paired/Cmel51-9_S140/Cmel51-9_S140_L001_R2_001.trim.fastq.gz") 
+
+plotQualityProfile("download_20260327/paired/Cmel89-9_S171/Cmel89-9_S171_L001_R1_001.trim.fastq.gz") 
+plotQualityProfile("download_20260327/paired/Cmel89-9_S171/Cmel89-9_S171_L001_R2_001.trim.fastq.gz") 
+
+plotQualityProfile("download_20260327/paired/mel2-inf3_S42/mel2-inf3_S42_L001_R1_001.trim.fastq.gz") 
+plotQualityProfile("download_20260327/paired/mel2-inf3_S42/mel2-inf3_S42_L001_R2_001.trim.fastq.gz") 
+
+plotQualityProfile("download_20260327/paired/mel2-uninf5_S31/mel2-uninf5_S31_L001_R1_001.trim.fastq.gz") 
+plotQualityProfile("download_20260327/paired/mel2-uninf5_S31/mel2-uninf5_S31_L001_R2_001.trim.fastq.gz") 
+```
+DADA2 quality profile plots summarise per-cycle base quality scores across reads. The solid orange line is median quality score at each base position, the solid turquoise line is mean quality score at each position, orange dashed lines show 10th and 90th percentiles. Q20 = ~1% error rate. Q30 = ~ 0.1% error rate.
+
+Forward reads are of high quality dropping off only after ~250bp, reverse reads are poor with mean quality dropping below Q30 early. Also read trimming does not appear to have worked as there are distinct lower quality regions at the start of all representative samples plotted.
+
+![Example forward reads](figures/AO3-F.png)
+![Example reverse reads](figures/ao3-r.png)
+
+**Collect inputs to run DADA2:**
+```R
+paired <- list.files(path = "download_20260327/paired", full.names = TRUE, recursive = TRUE)
+
+paired_1 <- paired[grepl("\\_R1\\_001.trim.fastq.gz$", paired)]
+paired_2 <- paired[grepl("\\_R2\\_001.trim.fastq.gz$", paired)]
+
+get_samplename <- function(x) basename(dirname(x))
+
+snF <- vapply(paired_1, get_samplename, character(1))
+snR <- vapply(paired_2, get_samplename, character(1))
+paired_samples <- intersect(snF, snR)
+paired_lookup_table <- data.frame(
+  sample = paired_samples,
+  fnF = paired_1[match(paired_samples, snF)],
+  fnR = paired_2[match(paired_samples, snR)],
+  stringsAsFactors = FALSE
+)
+```
+**Run DADA2:**
+
+The first 20bp were trimmed from all reads, truncLen set to 225 for forward and 110 for reverse.
+```R
+#Parameters
+truncLen <- c(225, 110)  #Truncate reads to this length, then remove entirely
+truncQ <- 20     #Truncate at first base with quality <= truncQ (higher = more conservative | lower = more permissive)
+maxEE <- c(1,3)  #Maximum expected errors (4 for the reverse reads as these are known/expected to be lower quality)
+maxN <- 0        #Maximum allowed N bases
+rm.phix <- TRUE  #Remove PhiX reads (bacteriophage used as control in Illumina sequencing runs)
+pool <- FALSE    #Pool samples for error rate estimation (FALSE = error model is learned per sample, this is more conservative and faster/less memory | pseudo = max sensitivity)
+threads <- TRUE  #Use multithreading
+outdir <- "download_20260327/results/dada_output"
+in_df <- paired_lookup_table
+
+#Create output directory
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+
+#Filter and trim reads (paired)
+filtFs <- file.path(outdir, paste0(in_df$sample, "_F_filt.fastq.gz"))
+filtRs <- file.path(outdir, paste0(in_df$sample, "_R_filt.fastq.gz"))
+out <- filterAndTrim(fwd = in_df$fnF, filt = filtFs, rev = in_df$fnR, filt.rev = filtRs, trimLeft=c(20,20), truncLen = truncLen, maxN = maxN, maxEE = maxEE, truncQ = truncQ, rm.phix = rm.phix, compress = TRUE, multithread = threads)
+
+#Learn error rates, dereplicate, run DADA2 algorithm, and merge pairs
+#Learn errors separately for F and R
+errF <- learnErrors(filtFs, nbases = 5e10, multithread = threads)
+errR <- learnErrors(filtRs, nbases = 5e10, multithread = threads)
+
+#309242705 total bases in 1508501 reads from 61 samples will be used for learning the error rates.
+#135765090 total bases in 1508501 reads from 61 samples will be used for learning the error rates.
+
+#Derep separately
+derepF <- derepFastq(filtFs, verbose = TRUE)
+derepR <- derepFastq(filtRs, verbose = TRUE)
+names(derepF) <- in_df$sample
+names(derepR) <- in_df$sample
+#Denoise separately
+dadaF <- dada(derepF, err = errF, pool = pool, multithread = threads)
+dadaR <- dada(derepR, err = errR, pool = pool, multithread = threads)
+#Merge pairs
+mergers <- mergePairs(dadaF, derepF, dadaR, derepR, verbose = TRUE)
+
+#Make ASV table and remove chimeras
+seqtab <- makeSequenceTable(mergers)
+seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = threads, verbose = TRUE)
+nonchim_reads <- rowSums(seqtab.nochim)
+chim_reads    <- rowSums(seqtab) - nonchim_reads
+chim_track <- cbind(nonchim = nonchim_reads, chimera = chim_reads, chimera_fraction = chim_reads / rowSums(seqtab))
+
+#Plot merged read lengths after chimera removal:
+asv_lengths <- nchar(colnames(seqtab.nochim))
+summary(asv_lengths)
+hist(asv_lengths, breaks=50, main="ASV lengths after chimera removal", xlab="Length (bp)")
+
+# Save results
+saveRDS(seqtab.nochim, file = file.path(outdir, "seqtab.nochim.rds"))
+write.table(seqtab.nochim, file.path(outdir, "seqtab.nochim.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+getN <- function(x) sum(getUniques(x))
+track <- cbind(input    = out[, "reads.in"], filtered = out[, "reads.out"], denoisedF = sapply(dadaF, getN), denoisedR = sapply(dadaR, getN), merged = sapply(mergers, function(x) sum(x$abundance)))
+rownames(track) <- in_df$sample
+write.table(track, file.path(outdir, "read_tracking.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+write.table(chim_track, file.path(outdir, "chimera_tracking.tsv"), sep="\t", quote=FALSE, col.names=NA)
+```
+![ASV lengths after filtering and merging](figures/maja_read_plot.png)
+
+>70% of reads are lost at the filtering step, I will try with less stringent filter thresholds.
+
+```R
+#Parameters
+truncLen <- c(0, 0)  #Truncate reads to this length, then remove entirely
+truncQ <- 20     #Truncate at first base with quality <= truncQ (higher = more conservative | lower = more permissive)
+maxEE <- c(2,4)  #Maximum expected errors (4 for the reverse reads as these are known/expected to be lower quality)
+maxN <- 0        #Maximum allowed N bases
+rm.phix <- TRUE  #Remove PhiX reads (bacteriophage used as control in Illumina sequencing runs)
+pool <- FALSE    #Pool samples for error rate estimation (FALSE = error model is learned per sample, this is more conservative and faster/less memory | pseudo = max sensitivity)
+threads <- TRUE  #Use multithreading
+outdir <- "download_20260327/results/dada_output_maja2"
+in_df <- paired_lookup_table
+
+#Create output directory
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+
+#Filter and trim reads (paired)
+filtFs <- file.path(outdir, paste0(in_df$sample, "_F_filt.fastq.gz"))
+filtRs <- file.path(outdir, paste0(in_df$sample, "_R_filt.fastq.gz"))
+out <- filterAndTrim(fwd = in_df$fnF, filt = filtFs, rev = in_df$fnR, filt.rev = filtRs, trimLeft=c(20,20), truncLen = truncLen, maxN = maxN, maxEE = maxEE, truncQ = truncQ, rm.phix = rm.phix, compress = TRUE, multithread = threads)
+
+#Learn error rates, dereplicate, run DADA2 algorithm, and merge pairs
+#Learn errors separately for F and R
+errF <- learnErrors(filtFs, nbases = 5e10, multithread = threads)
+errR <- learnErrors(filtRs, nbases = 5e10, multithread = threads)
+
+#697694570 total bases in 3543665 reads from 61 samples will be used for learning the error rates.
+#358334197 total bases in 3543665 reads from 61 samples will be used for learning the error rates.
+
+#Derep separately
+derepF <- derepFastq(filtFs, verbose = TRUE)
+derepR <- derepFastq(filtRs, verbose = TRUE)
+names(derepF) <- in_df$sample
+names(derepR) <- in_df$sample
+#Denoise separately
+dadaF <- dada(derepF, err = errF, pool = pool, multithread = threads)
+dadaR <- dada(derepR, err = errR, pool = pool, multithread = threads)
+#Merge pairs
+mergers <- mergePairs(dadaF, derepF, dadaR, derepR, verbose = TRUE)
+
+#Make ASV table and remove chimeras
+seqtab <- makeSequenceTable(mergers)
+seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = threads, verbose = TRUE)
+nonchim_reads <- rowSums(seqtab.nochim)
+chim_reads    <- rowSums(seqtab) - nonchim_reads
+chim_track <- cbind(nonchim = nonchim_reads, chimera = chim_reads, chimera_fraction = chim_reads / rowSums(seqtab))
+
+#Plot merged read lengths after chimera removal:
+asv_lengths <- nchar(colnames(seqtab.nochim))
+summary(asv_lengths)
+hist(asv_lengths, breaks=50, main="ASV lengths after chimera removal", xlab="Length (bp)")
+
+# Save results
+saveRDS(seqtab.nochim, file = file.path(outdir, "seqtab.nochim.rds"))
+write.table(seqtab.nochim, file.path(outdir, "seqtab.nochim.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+getN <- function(x) sum(getUniques(x))
+track <- cbind(input    = out[, "reads.in"], filtered = out[, "reads.out"], denoisedF = sapply(dadaF, getN), denoisedR = sapply(dadaR, getN), merged = sapply(mergers, function(x) sum(x$abundance)))
+rownames(track) <- in_df$sample
+write.table(track, file.path(outdir, "read_tracking.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+write.table(chim_track, file.path(outdir, "chimera_tracking.tsv"), sep="\t", quote=FALSE, col.names=NA)
+```
+30-40% or reads are dropped during filtering even with these settings. The ASV length appears to be ~230bp long, so we should be able to get away with low truncLen values, however I want some stringency...
+
+There are 4,631 ASVs with the low quality threshold and 8,481 with the higher threshold...
+
+Lenient filtering: truncLen=0,0 and maxEE=2,4 → more reads retained, but fewer ASVs
+Stringent filtering: truncLen=225,110 and maxEE=1,3 → fewer reads, but more ASVs
+
+Keeping more reads and full-length sequences can improve error correction, resulting in fewer, but more accurate ASVs? Stringent settings often leave just the very high-quality reads, these reads are fewer and DADA2 overfits rare errors as ASVs?
+
+```R
+#Parameters
+truncLen <- c(200, 90)  #Truncate reads to this length, then remove entirely
+truncQ <- 20     #Truncate at first base with quality <= truncQ (higher = more conservative | lower = more permissive)
+maxEE <- c(1,3)  #Maximum expected errors (4 for the reverse reads as these are known/expected to be lower quality)
+maxN <- 0        #Maximum allowed N bases
+rm.phix <- TRUE  #Remove PhiX reads (bacteriophage used as control in Illumina sequencing runs)
+pool <- FALSE    #Pool samples for error rate estimation (FALSE = error model is learned per sample, this is more conservative and faster/less memory | pseudo = max sensitivity)
+threads <- TRUE  #Use multithreading
+outdir <- "download_20260327/results/dada_output_maja3"
+in_df <- paired_lookup_table
+
+#Create output directory
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+
+#Filter and trim reads (paired)
+filtFs <- file.path(outdir, paste0(in_df$sample, "_F_filt.fastq.gz"))
+filtRs <- file.path(outdir, paste0(in_df$sample, "_R_filt.fastq.gz"))
+out <- filterAndTrim(fwd = in_df$fnF, filt = filtFs, rev = in_df$fnR, filt.rev = filtRs, trimLeft=c(20,20), truncLen = truncLen, maxN = maxN, maxEE = maxEE, truncQ = truncQ, rm.phix = rm.phix, compress = TRUE, multithread = threads)
+
+#Learn error rates, dereplicate, run DADA2 algorithm, and merge pairs
+#Learn errors separately for F and R
+errF <- learnErrors(filtFs, nbases = 5e10, multithread = threads)
+errR <- learnErrors(filtRs, nbases = 5e10, multithread = threads)
+
+#342740160 total bases in 1904112 reads from 61 samples will be used for learning the error rates.
+#133287840 total bases in 1904112 reads from 61 samples will be used for learning the error rates.
+
+#Derep separately
+derepF <- derepFastq(filtFs, verbose = TRUE)
+derepR <- derepFastq(filtRs, verbose = TRUE)
+names(derepF) <- in_df$sample
+names(derepR) <- in_df$sample
+#Denoise separately
+dadaF <- dada(derepF, err = errF, pool = pool, multithread = threads)
+dadaR <- dada(derepR, err = errR, pool = pool, multithread = threads)
+#Merge pairs
+mergers <- mergePairs(dadaF, derepF, dadaR, derepR, verbose = TRUE)
+
+#Make ASV table and remove chimeras
+seqtab <- makeSequenceTable(mergers)
+seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = threads, verbose = TRUE)
+nonchim_reads <- rowSums(seqtab.nochim)
+chim_reads    <- rowSums(seqtab) - nonchim_reads
+chim_track <- cbind(nonchim = nonchim_reads, chimera = chim_reads, chimera_fraction = chim_reads / rowSums(seqtab))
+
+#Plot merged read lengths after chimera removal:
+asv_lengths <- nchar(colnames(seqtab.nochim))
+summary(asv_lengths)
+hist(asv_lengths, breaks=50, main="ASV lengths after chimera removal", xlab="Length (bp)")
+
+# Save results
+saveRDS(seqtab.nochim, file = file.path(outdir, "seqtab.nochim.rds"))
+write.table(seqtab.nochim, file.path(outdir, "seqtab.nochim.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+getN <- function(x) sum(getUniques(x))
+track <- cbind(input    = out[, "reads.in"], filtered = out[, "reads.out"], denoisedF = sapply(dadaF, getN), denoisedR = sapply(dadaR, getN), merged = sapply(mergers, function(x) sum(x$abundance)))
+rownames(track) <- in_df$sample
+write.table(track, file.path(outdir, "read_tracking.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+write.table(chim_track, file.path(outdir, "chimera_tracking.tsv"), sep="\t", quote=FALSE, col.names=NA)
+```
+60 - 70% of reads are lost at filtering step, 13,705 ASVs.
+
+```R
+#Parameters
+truncLen <- c(0, 0)  #Truncate reads to this length, then remove entirely
+truncQ <- 20     #Truncate at first base with quality <= truncQ (higher = more conservative | lower = more permissive)
+maxEE <- c(1,3)  #Maximum expected errors (4 for the reverse reads as these are known/expected to be lower quality)
+maxN <- 0        #Maximum allowed N bases
+rm.phix <- TRUE  #Remove PhiX reads (bacteriophage used as control in Illumina sequencing runs)
+pool <- FALSE    #Pool samples for error rate estimation (FALSE = error model is learned per sample, this is more conservative and faster/less memory | pseudo = max sensitivity)
+threads <- TRUE  #Use multithreading
+outdir <- "download_20260327/results/dada_output_maja4"
+in_df <- paired_lookup_table
+
+#Create output directory
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+
+#Filter and trim reads (paired)
+filtFs <- file.path(outdir, paste0(in_df$sample, "_F_filt.fastq.gz"))
+filtRs <- file.path(outdir, paste0(in_df$sample, "_R_filt.fastq.gz"))
+out <- filterAndTrim(fwd = in_df$fnF, filt = filtFs, rev = in_df$fnR, filt.rev = filtRs, trimLeft=c(20,20), truncLen = truncLen, maxN = maxN, maxEE = maxEE, truncQ = truncQ, rm.phix = rm.phix, compress = TRUE, multithread = threads)
+
+#Learn error rates, dereplicate, run DADA2 algorithm, and merge pairs
+#Learn errors separately for F and R
+errF <- learnErrors(filtFs, nbases = 5e10, multithread = threads)
+errR <- learnErrors(filtRs, nbases = 5e10, multithread = threads)
+
+#697694570 total bases in 3543665 reads from 61 samples will be used for learning the error rates.
+#358334197 total bases in 3543665 reads from 61 samples will be used for learning the error rates.
+
+#Derep separately
+derepF <- derepFastq(filtFs, verbose = TRUE)
+derepR <- derepFastq(filtRs, verbose = TRUE)
+names(derepF) <- in_df$sample
+names(derepR) <- in_df$sample
+#Denoise separately
+dadaF <- dada(derepF, err = errF, pool = pool, multithread = threads)
+dadaR <- dada(derepR, err = errR, pool = pool, multithread = threads)
+#Merge pairs
+mergers <- mergePairs(dadaF, derepF, dadaR, derepR, verbose = TRUE)
+
+#Make ASV table and remove chimeras
+seqtab <- makeSequenceTable(mergers)
+seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = threads, verbose = TRUE)
+nonchim_reads <- rowSums(seqtab.nochim)
+chim_reads    <- rowSums(seqtab) - nonchim_reads
+chim_track <- cbind(nonchim = nonchim_reads, chimera = chim_reads, chimera_fraction = chim_reads / rowSums(seqtab))
+
+#Plot merged read lengths after chimera removal:
+asv_lengths <- nchar(colnames(seqtab.nochim))
+summary(asv_lengths)
+hist(asv_lengths, breaks=50, main="ASV lengths after chimera removal", xlab="Length (bp)")
+
+# Save results
+saveRDS(seqtab.nochim, file = file.path(outdir, "seqtab.nochim.rds"))
+write.table(seqtab.nochim, file.path(outdir, "seqtab.nochim.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+getN <- function(x) sum(getUniques(x))
+track <- cbind(input    = out[, "reads.in"], filtered = out[, "reads.out"], denoisedF = sapply(dadaF, getN), denoisedR = sapply(dadaR, getN), merged = sapply(mergers, function(x) sum(x$abundance)))
+rownames(track) <- in_df$sample
+write.table(track, file.path(outdir, "read_tracking.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+write.table(chim_track, file.path(outdir, "chimera_tracking.tsv"), sep="\t", quote=FALSE, col.names=NA)
+```
+35 - 50% of reads are lost at filtering step, 4,613 ASVs.
+
+```R
+#Parameters
+truncLen <- c(240, 0)  #Truncate reads to this length, then remove entirely
+truncQ <- 20     #Truncate at first base with quality <= truncQ (higher = more conservative | lower = more permissive)
+maxEE <- c(1,3)  #Maximum expected errors (4 for the reverse reads as these are known/expected to be lower quality)
+maxN <- 0        #Maximum allowed N bases
+rm.phix <- TRUE  #Remove PhiX reads (bacteriophage used as control in Illumina sequencing runs)
+pool <- FALSE    #Pool samples for error rate estimation (FALSE = error model is learned per sample, this is more conservative and faster/less memory | pseudo = max sensitivity)
+threads <- TRUE  #Use multithreading
+outdir <- "download_20260327/results/dada_output_maja5"
+in_df <- paired_lookup_table
+
+#Create output directory
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+
+#Filter and trim reads (paired)
+filtFs <- file.path(outdir, paste0(in_df$sample, "_F_filt.fastq.gz"))
+filtRs <- file.path(outdir, paste0(in_df$sample, "_R_filt.fastq.gz"))
+out <- filterAndTrim(fwd = in_df$fnF, filt = filtFs, rev = in_df$fnR, filt.rev = filtRs, trimLeft=c(20,20), truncLen = truncLen, maxN = maxN, maxEE = maxEE, truncQ = truncQ, rm.phix = rm.phix, compress = TRUE, multithread = threads)
+
+#Learn error rates, dereplicate, run DADA2 algorithm, and merge pairs
+#Learn errors separately for F and R
+errF <- learnErrors(filtFs, nbases = 5e10, multithread = threads)
+errR <- learnErrors(filtRs, nbases = 5e10, multithread = threads)
+
+#523711100 total bases in 2380505 reads from 61 samples will be used for learning the error rates.
+#266032635 total bases in 2380505 reads from 61 samples will be used for learning the error rates.
+
+#Derep separately
+derepF <- derepFastq(filtFs, verbose = TRUE)
+derepR <- derepFastq(filtRs, verbose = TRUE)
+names(derepF) <- in_df$sample
+names(derepR) <- in_df$sample
+#Denoise separately
+dadaF <- dada(derepF, err = errF, pool = pool, multithread = threads)
+dadaR <- dada(derepR, err = errR, pool = pool, multithread = threads)
+#Merge pairs
+mergers <- mergePairs(dadaF, derepF, dadaR, derepR, verbose = TRUE)
+
+#Make ASV table and remove chimeras
+seqtab <- makeSequenceTable(mergers)
+seqtab.nochim <- removeBimeraDenovo(seqtab, method = "consensus", multithread = threads, verbose = TRUE)
+nonchim_reads <- rowSums(seqtab.nochim)
+chim_reads    <- rowSums(seqtab) - nonchim_reads
+chim_track <- cbind(nonchim = nonchim_reads, chimera = chim_reads, chimera_fraction = chim_reads / rowSums(seqtab))
+
+#Plot merged read lengths after chimera removal:
+asv_lengths <- nchar(colnames(seqtab.nochim))
+summary(asv_lengths)
+hist(asv_lengths, breaks=50, main="ASV lengths after chimera removal", xlab="Length (bp)")
+
+# Save results
+saveRDS(seqtab.nochim, file = file.path(outdir, "seqtab.nochim.rds"))
+write.table(seqtab.nochim, file.path(outdir, "seqtab.nochim.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+getN <- function(x) sum(getUniques(x))
+track <- cbind(input    = out[, "reads.in"], filtered = out[, "reads.out"], denoisedF = sapply(dadaF, getN), denoisedR = sapply(dadaR, getN), merged = sapply(mergers, function(x) sum(x$abundance)))
+rownames(track) <- in_df$sample
+write.table(track, file.path(outdir, "read_tracking.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+write.table(chim_track, file.path(outdir, "chimera_tracking.tsv"), sep="\t", quote=FALSE, col.names=NA)
+```
+~60% of reads are lost at filtering step, 4,072 ASVs.
+
+#### Minimum-abundance / prevalence filtering  
+
+Remove ASV if is not at least 1% of reads in a sample or 0.1% of reads in multiple samples. (Sequencing errors and tag-jumps almost always show up in one sample only)
+```R
+ASV <- readRDS("download_20260327/results/dada_output/seqtab.nochim.rds") #_maja1
+ASV <- readRDS("download_20260327/results/dada_output_maja/seqtab.nochim.rds")
+ASV <- readRDS("download_20260327/results/dada_output_maja2/seqtab.nochim.rds")
+ASV <- readRDS("download_20260327/results/dada_output_maja3/seqtab.nochim.rds")#
+ASV <- readRDS("download_20260327/results/dada_output_maja4/seqtab.nochim.rds")
+ASV <- readRDS("download_20260327/results/dada_output_maja5/seqtab.nochim.rds") #_maja
+
+prune_single_sample_low_abundance <- function(seqtab, min_rel = 0.01) {
+  prevalence <- colSums(seqtab > 0) #count how many samples each ASV appears in
+  sample_totals <- rowSums(seqtab) #find total reads per sample
+  rel_abund <- sweep(seqtab, 1, sample_totals, "/") #ASV_reads / total_reads_in_sample
+  rel_abund[is.na(rel_abund)] <- 0 #Set relative abundance to 0 where undefined
+  max_rel <- apply(rel_abund, 2, max) #Finds the highest relative abundance ASV ever reaches (for single sample ASVs there is only 1 value)
+  keep <- (max_rel >= 0.01) | (prevalence >= 2 & max_rel >= 0.001) #remove ASV if is not at least 1% of reads in a sample or 0.1% of reads in multiple samples
+  seqtab[, keep, drop = FALSE]
+}
+
+ASV_pruned <- prune_single_sample_low_abundance(ASV, min_rel = 0.01)
+
+ncol(ASV) #8480,8480,4612,13703,4612,4072
+ncol(ASV_pruned) #1231,1231,795,1329,795,768
+mean(rowSums(ASV_pruned > 0)) #144.082,144.082,81.90164,172,81.90164,77.06557
+
+dir.create("download_20260327/ASVs", showWarnings = FALSE, recursive = TRUE)
+
+saveRDS(ASV_pruned, file = file.path("download_20260327/ASVs/ASV_asv.rds"))
+write.table(ASV_pruned, file.path("download_20260327/ASVs/ASV_asv.tsv"), sep="\t", quote=FALSE, col.names=NA)
+
+# seqtab_filt: samples x ASVs
+asv_seqs <- colnames(ASV_pruned)
+asv_headers <- paste0("ASV", seq_along(asv_seqs))
+dna <- Biostrings::DNAStringSet(asv_seqs)
+names(dna) <- asv_headers
+Biostrings::writeXStringSet(dna, "download_20260327/ASVs/ASVs.fasta")
+write.csv(data.frame(ASV=asv_headers, Sequence=asv_seqs), "download_20260327/ASVs/ASV_id_map.csv", row.names = FALSE)
+```
+#### IDTAXA
+
+```R
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(c("DECIPHER","stringr", "Biostrings"))
+
+library(DECIPHER)
+library(Biostrings)
+library(stringr)
+
+setwd("C:/Users/THeaven/OneDrive - Scientific Network South Tyrol/R")
+
+load("SILVA_SSU_r138_2_2024.RData")
+
+SSU_trainingSet <- trainingSet
+
+SSU_ASVs <- readDNAStringSet("download_20260327/ASVs/ASVs.fasta")
+
+SSU_tax_idtaxa <- IdTaxa(
+  SSU_ASVs,
+  SSU_trainingSet,
+  strand = "both",
+  bootstraps = 100 , #default - maximum number of bootstrap replicates to perform for each sequence
+  processors = NULL, #Use all available cores
+  threshold = 60 ,  #% of bootstraps supporting assignment, raise to 70–80 for fewer false positives
+  verbose = TRUE 
+)
+
+# Convert to table
+target_ranks <- c("root","domain","phylum","class","order","family","genus","species")
+
+extract_tax <- function(x) {
+  out <- setNames(rep(NA_character_, length(target_ranks)), target_ranks)
+  if (!is.null(x$rank) && length(x$rank)) {
+    idx <- match(tolower(x$rank), target_ranks)
+    keep <- !is.na(idx)
+    out[idx[keep]] <- x$taxon[keep]
+  }
+  out
+}
+
+SSU_tax_tab <- t(vapply(SSU_tax_idtaxa, extract_tax,
+                    FUN.VALUE = setNames(rep(NA_character_, length(target_ranks)), target_ranks)))
+SSU_tax_tab <- as.data.frame(SSU_tax_tab, stringsAsFactors = FALSE)
+rownames(SSU_tax_tab) <- names(SSU_ASVs)
+write.table(SSU_tax_tab, file = "download_20260327/ASVs/SSU_tax_tab_corrected.tsv", sep = "\t", row.names = TRUE, quote = FALSE, na = "NA")
+
+#convert to qiime format for plotting
+tax_df <- data.frame(
+  Feature.ID = names(SSU_tax_idtaxa),
+  Taxon = sapply(SSU_tax_idtaxa, function(x) {
+    # Skip the first rank (root)
+    ranks <- c("k__", "p__", "c__", "o__", "f__", "g__", "s__")
+    paste0(ranks, x$taxon[-1])[1:length(ranks)] |> paste(collapse = "; ")
+  }),
+  Confidence = sapply(SSU_tax_idtaxa, function(x) {
+    min(x$confidence, na.rm = TRUE) / 100
+  })
+)
+
+write.table(
+  tax_df,
+  "download_20260327/ASVs/idtaxa_taxonomy_maja.tsv",
+  sep = "\t",
+  quote = FALSE,
+  row.names = FALSE
+)
+```
+Curate the taxonomy file: replace g_endosymbionts with g_unclassified_f, replace Incertae Sedis entries with x_unclassified_x, propogate x_unclassified_x entries down ranks.
+Upload and plot with qiime
+```bash
+ASV_dir=/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/unibz/make_qiime2_inputs.py \
+  --counts "$ASV_dir"/ASV_asv_maja.tsv \
+  --map "$ASV_dir"/ASV_id_map_maja.csv \
+  --out-dir "$ASV_dir"/qiime_inputs \
+  --out-prefix qiime_inputs_maja
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i "$ASV_dir"/qiime_inputs/qiime_inputs_majaASV_table.tsv \
+  -o "$ASV_dir"/qiime_inputs/ASV_table_maja.biom \
+  --table-type="OTU table" \
+  --to-hdf5
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureTable[Frequency]' \
+  --input-path "$ASV_dir"/qiime_inputs/ASV_table_maja.biom \
+  --output-path "$ASV_dir"/qiime_inputs/table_maja.qza
+
+echo -e "#SampleID" > "$ASV_dir"/sample-metadata_maja.tsv
+head -n 1 "$ASV_dir"/qiime_inputs/qiime_inputs_majaASV_table.tsv | cut -f2- | tr '\t' '\n' >> "$ASV_dir"/sample-metadata_maja.tsv
+#Download, input metadata, upload
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureData[Taxonomy]' \
+  --input-path "$ASV_dir"/idtaxa_taxonomy_maja.tsv \
+  --output-path "$ASV_dir"/idtaxa_taxonomy_maja.qza \
+  --input-format HeaderlessTSVTaxonomyFormat
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barplot \
+  --i-table "$ASV_dir"/qiime_inputs/table_maja.qza \
+  --i-taxonomy "$ASV_dir"/idtaxa_taxonomy_maja.qza \
+  --m-metadata-file "$ASV_dir"/sample-metadata_maja.tsv \
+  --o-visualization "$ASV_dir"/idtaxa_maja-barplot.qzv
+```
+#### QIIME2
+
+```bash
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureData[Sequence]' \
+  --input-path "$ASV_dir"/ASVs_maja.fasta \
+  --output-path "$ASV_dir"/rep-seqs_maja.qza
+
+srun -p bioagri  -c 4 --mem 64G --pty bash
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+ASV_dir=/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime feature-classifier classify-sklearn \
+  --i-classifier ~/db/SILVA/ssu_138.2/SILVA138.2_SSURef_NR99_weighted_classifier_V4-515f-806r_animal-distal-gut.qza \
+  --i-reads "$ASV_dir"/rep-seqs_maja.qza \
+  --o-classification "$ASV_dir"/V4-515f-806r-nimal-distal-gut-taxonomy_maja.qza \
+  --p-n-jobs 4
+
+#Export
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path "$ASV_dir"/V4-515f-806r-nimal-distal-gut-taxonomy_maja.qza \
+  --output-path "$ASV_dir"/qiime_V4-515f-806r-nimal-distal-gut_taxonomy_maja
+
+#Visualise:
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barplot \
+  --i-table "$ASV_dir"/qiime_inputs/table_maja.qza \
+  --i-taxonomy "$ASV_dir"/V4-515f-806r-nimal-distal-gut-taxonomy_maja.qza \
+  --m-metadata-file "$ASV_dir"/sample-metadata_maja.tsv \
+  --o-visualization "$ASV_dir"/V4-515f-806r-nimal-distal-gut-taxa-barplot_maja.qzv
+```
+https://view.qiime2.org/
+
+***QIIME2 with stricter filtering:***
+```bash
+ASV_dir=/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureData[Sequence]' \
+  --input-path "$ASV_dir"/ASVs_maja1.fasta \
+  --output-path "$ASV_dir"/rep-seqs_maja1.qza
+
+srun -p bioagri  -c 4 --mem 64G --pty bash
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+ASV_dir=/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime feature-classifier classify-sklearn \
+  --i-classifier ~/db/SILVA/ssu_138.2/SILVA138.2_SSURef_NR99_weighted_classifier_V4-515f-806r_animal-distal-gut.qza \
+  --i-reads "$ASV_dir"/rep-seqs_maja1.qza \
+  --o-classification "$ASV_dir"/V4-515f-806r-nimal-distal-gut-taxonomy_maja1.qza \
+  --p-n-jobs 4
+
+#Export
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path "$ASV_dir"/V4-515f-806r-nimal-distal-gut-taxonomy_maja1.qza \
+  --output-path "$ASV_dir"/qiime_V4-515f-806r-nimal-distal-gut_taxonomy_maja1
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/unibz/make_qiime2_inputs.py \
+  --counts "$ASV_dir"/ASV_asv_maja1.tsv \
+  --map "$ASV_dir"/ASV_id_map_maja1.csv \
+  --out-dir "$ASV_dir"/qiime_inputs \
+  --out-prefix qiime_inputs_maja1
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i "$ASV_dir"/qiime_inputs/qiime_inputs_maja1ASV_table.tsv \
+  -o "$ASV_dir"/qiime_inputs/ASV_table_maja1.biom \
+  --table-type="OTU table" \
+  --to-hdf5
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureTable[Frequency]' \
+  --input-path "$ASV_dir"/qiime_inputs/ASV_table_maja1.biom \
+  --output-path "$ASV_dir"/qiime_inputs/table_maja1.qza
+
+#Visualise:
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barplot \
+  --i-table "$ASV_dir"/qiime_inputs/table_maja1.qza \
+  --i-taxonomy "$ASV_dir"/V4-515f-806r-nimal-distal-gut-taxonomy_maja1.qza \
+  --m-metadata-file "$ASV_dir"/sample-metadata_maja.tsv \
+  --o-visualization "$ASV_dir"/V4-515f-806r-nimal-distal-gut-taxa-barplot_maja1.qzv
+```
+https://view.qiime2.org/
