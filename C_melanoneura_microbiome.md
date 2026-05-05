@@ -354,6 +354,13 @@ apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity
   --p-max-depth 30000 \
   --m-metadata-file "$ASV_dir"/sample-metadata.tsv \
   --o-visualization "$ASV_dir"/alpha-rarefaction.qzv 
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity alpha-rarefaction \
+  --i-table "$ASV_dir"/qiime_inputs/table.qza \
+  --i-phylogeny rooted-tree.qza \
+  --p-max-depth 100000 \
+  --m-metadata-file "$ASV_dir"/sample-metadata.tsv \
+  --o-visualization "$ASV_dir"/alpha-rarefaction-100000.qzv 
 ```
 ![Rarefaction curves for regions: North East Italy, North West Italy, Austria-CzechRepublic-Germany](figures/rarefaction-region.png)
 
@@ -841,7 +848,570 @@ apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barp
   --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported.qza \
   --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
   --o-visualization /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/taxa-barplot-no-organelle.qzv
+
+#Build phylogeny
+screen -S melanoneura
+srun -p bioagri  -c 64 --mem 64G --pty bash
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+ASV_dir=/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime phylogeny align-to-tree-mafft-iqtree \
+  --i-sequences "$ASV_dir"/rep-seqs.qza \
+  --o-alignment "$ASV_dir"/aligned-rep-seqs.qza \
+  --o-masked-alignment "$ASV_dir"/masked-aligned-rep-seqs.qza \
+  --o-tree "$ASV_dir"/unrooted-tree.qza \
+  --o-rooted-tree "$ASV_dir"/rooted-tree.qza \
+  --p-n-threads 64
+
+#Find sequencing depth cuttoff
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime feature-table summarize \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast.qza \
+  --o-visualization /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast-summary.qzv \
+  --m-sample-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv
+#2 samples are below 10,000 depth
+#9 samples are below 20,000
+#14 below 30,000
+#27 below 40,000
+
+#re-plot rarefaction
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity alpha-rarefaction \
+  --i-table "/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast.qza" \
+  --i-phylogeny "$ASV_dir"/rooted-tree.qza \
+  --p-max-depth 100000 \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization "$ASV_dir"/core-metrics-results/alpha-rarefaction.qzv
+#Alpha rarefaction curves plateaued at approximately 20,000–30,000 reads per sample. A rarefaction depth of 30,000 was selected to balance diversity capture while retaining the majority of samples.
+
+#Run diversity analyses
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity core-metrics-phylogenetic \
+  --i-phylogeny "$ASV_dir"/rooted-tree.qza  \
+  --i-table "/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast.qza" \
+  --p-sampling-depth 30000 \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --output-dir "$ASV_dir"/core-metrics-results
+
+Rareified_table=$ASV_dir/core-metrics-results/rarefied_table.qza
+
+#calculate simpson
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity alpha \
+  --i-table "$Rareified_table" \
+  --p-metric simpson \
+  --o-alpha-diversity "$ASV_dir"/core-metrics-results/simpson.qza
+
+#calculate chao1
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif \
+qiime diversity alpha \
+  --i-table "$Rareified_table" \
+  --p-metric chao1 \
+  --o-alpha-diversity "$ASV_dir"/core-metrics-results/chao1.qza
+
+#plot shannon
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity alpha-group-significance \
+  --i-alpha-diversity "$ASV_dir"/core-metrics-results/shannon_vector.qza \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization "$ASV_dir"/core-metrics-results/shannon-significance.qzv
+
+#plot simpson 
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity alpha-group-significance \
+  --i-alpha-diversity "$ASV_dir"/core-metrics-results/simpson.qza \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization "$ASV_dir"/core-metrics-results/simpson-group.qzv
+
+#plot chao1
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity alpha-group-significance \
+  --i-alpha-diversity "$ASV_dir"/core-metrics-results/chao1.qza \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization "$ASV_dir"/core-metrics-results/chao1-group.qzv
+
+#plot pielou evenness
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity alpha-group-significance \
+  --i-alpha-diversity "$ASV_dir"/core-metrics-results/evenness_vector.qza \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization "$ASV_dir"/core-metrics-results/evenness.qzv
+
+#plot observed features
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity alpha-group-significance \
+  --i-alpha-diversity "$ASV_dir"/core-metrics-results/observed_features_vector.qza \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization "$ASV_dir"/core-metrics-results/observed-features.qzv
+
+#plot faith pd
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime diversity alpha-group-significance \
+  --i-alpha-diversity "$ASV_dir"/core-metrics-results/faith_pd_vector.qza \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization "$ASV_dir"/core-metrics-results/faith-pd.qzv
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#Alpha diversity group comparison:
+  qiime diversity alpha-group-significance \
+  --i-alpha-diversity core-metrics-results/shannon_vector.qza \
+  --m-metadata-file sample-metadata.tsv \
+  --o-visualization shannon-group-significance.qzv
+#Beta diversity significance (PERMANOVA):
+  qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file sample-metadata.tsv \
+  --m-metadata-column Treatment \
+  --p-method permanova \
+  --o-visualization bray-curtis-permanova.qzv
+
+
+
+  "$ASV_dir"/core-metrics-results/rarefied_table.qza
 ```
+Shanon index
+Simpson index
+Bray-Curtis
+Unifrac
+Bray-Curtis -PCoA
+Unifrac - PCoA
+
+![Sequencing depth of sampels](figures/Screenshot_2026-04-15_161551.png)
+
+### Plot
+
+```bash
+ASV_dir=/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs
+down_dir=/data/users/theaven/C_melanoneura_microbiome/down_20260427
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+
+#export feature table
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path "$ASV_dir"/table-no-mitochondria-chloroplast.qza \
+  --output-path "$ASV_dir"/exported-feature-table
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i "$ASV_dir"/exported-feature-table/feature-table.biom \
+  -o "$down_dir"/feature-table.tsv \
+  --to-tsv
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path "$ASV_dir"/reimported.qza \
+  --output-path "$down_dir"/exported-taxonomy
+
+cp /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv "$down_dir"/
+```
+```R
+install.packages(c("tidyverse"))
+install.packages("BiocManager")
+install.packages("ggrepel")
+BiocManager::install("phyloseq")
+BiocManager::install("microbiome")
+
+library(phyloseq)
+library(tidyverse)
+library(readr)
+library(tibble)
+library(ggplot2)
+library(tidyr)
+library(RColorBrewer)
+library(ggrepel)
+
+setwd("C:/Users/THeaven/OneDrive - Scientific Network South Tyrol/R")
+set.seed(1)
+
+# Load table
+otu <- read.table("down_20260427/feature-table.tsv", header=TRUE, row.names=1, sep="\t", comment.char="")
+otu <- as.matrix(otu)
+colnames(otu) <- gsub("\\.", "-", colnames(otu))
+
+# Load metadata
+meta <- read_tsv(
+  "down_20260427/sample-metadata.tsv",
+  comment = "",  
+  show_col_types = FALSE
+)
+meta <- column_to_rownames(meta, var = "#SampleID")
+
+tax <- read.table("down_20260427/exported-taxonomy/taxonomy.tsv", 
+                  header = TRUE, 
+                  sep = "\t", 
+                  row.names = 1)
+tax_split <- tax %>%
+  separate(Taxon, 
+           into = c("Kingdom","Phylum","Class","Order","Family","Genus","Species"), 
+           sep = ";", 
+           fill = "right")
+
+# Create objects
+OTU <- otu_table(otu, taxa_are_rows=TRUE)
+SAM <- sample_data(meta)
+TAX <- tax_table(as.matrix(tax_split))
+ps <- phyloseq(OTU, SAM, TAX)
+
+tax_table(ps) <- apply(tax_table(ps), 2, trimws)
+tax_table(ps)[, "Genus"] <- gsub("^s__", "g__", tax_table(ps)[, "Genus"])
+
+
+ps_genus <- tax_glom(ps, taxrank = "Genus")
+
+ps_rel <- transform_sample_counts(ps_genus, function(x) x / sum(x))
+
+df <- psmelt(ps_rel)
+
+taxa_abund <- tapply(df$Abundance, df$Genus, sum)
+
+top10 <- names(sort(taxa_abund, decreasing = TRUE))[1:10]
+
+keep_extra <- c("g__Candidatus_Sulcia", "g__Candidatus_Carsonella")
+
+fixed_cols <- c(
+  "g__Candidatus_Sulcia" = "#FF00FF",
+  "g__Candidatus_Carsonella" = "#000000"
+)
+
+keep_taxa <- unique(c(top10, keep_extra))
+
+df$Genus <- as.character(df$Genus)
+
+df$Genus[!df$Genus %in% keep_taxa] <- "Other"
+
+all_taxa <- unique(df$Genus)
+
+fixed_taxa <- names(fixed_cols)
+
+auto_taxa <- setdiff(all_taxa, fixed_taxa)
+auto_taxa <- setdiff(auto_taxa, "Other")
+
+library(RColorBrewer)
+
+auto_cols <- setNames(
+  colorRampPalette(brewer.pal(8, "Set3"))(length(auto_taxa)),
+  auto_taxa
+)
+
+other_col <- c("Other" = "grey80")
+
+final_cols <- c(auto_cols, fixed_cols, other_col)
+
+df$Genus <- factor(df$Genus, levels = names(final_cols))
+
+ggplot(df, aes(x = Sample, y = Abundance, fill = Genus)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = final_cols) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+######################################################################################
+
+get_alpha <- function(ps_obj, meta_obj) {
+  alpha <- estimate_richness(ps_obj,
+                             measures = c("Shannon", "Simpson", "Chao1", "Observed"))
+  rownames(alpha) <- gsub("\\.", "-", rownames(alpha))
+  alpha$Sample <- rownames(alpha)
+  meta_obj$Sample <- rownames(meta_obj)
+  df <- merge(alpha, meta_obj, by = "Sample")
+  return(df)
+}
+
+######################################################################################
+#Field only, Apple vs hawthorn but keep the country of origin
+df_sub <- subset(df, Field_Lab2 == "field")
+
+df_sub$host <- as.character(df_sub$host)
+df_sub$country <- as.character(df_sub$country)
+df_sub$Sample <- as.character(df_sub$Sample)
+
+# create hierarchical grouping key
+df_sub$Group <- paste(df_sub$host, df_sub$country, sep = "_")
+df_sub$Label <- paste(df_sub$country, df_sub$host, df_sub$Sample)
+
+df_sub$Group <- factor(df_sub$Group, levels = unique(df_sub$Group))
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+df_sub <- df_sub[order(df_sub$country, df_sub$host, df_sub$Sample), ]
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+ggplot(df_sub, aes(x = Label, y = Abundance, fill = Genus)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = final_cols) +
+  scale_x_discrete(drop = FALSE) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  )
+
+meta_f <- meta[meta$Field_Lab2 == "field", ]
+ps_f <- prune_samples(rownames(meta_f), ps)
+
+alpha_df <- get_alpha(ps_f, meta_f)
+
+ggplot(alpha_df, aes(x = host, y = Shannon, fill = host)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.3, width = 0.6) +
+  geom_jitter(aes(color = host),
+              width = 0.15,
+              alpha = 0.7,
+              size = 2) +
+  facet_wrap(~ country) +
+  theme_classic() +
+  guides(color = "none")
+
+bray <- phyloseq::distance(ps_f, method = "bray")
+ord <- ordinate(ps_f, method = "PCoA", distance = bray)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  facet_wrap(~ country) +
+  theme_classic()
+
+######################################################################################
+#Field only, Females vs males but keep the country of origin and host
+df_sub <- subset(df, Field_Lab2 == "field")
+
+df_sub$sex <- as.character(df_sub$sex)
+df_sub$host <- as.character(df_sub$host)
+df_sub$country <- as.character(df_sub$country)
+df_sub$Sample <- as.character(df_sub$Sample)
+
+# create hierarchical grouping key
+df_sub$Group <- paste(df_sub$sex, df_sub$host, df_sub$country, sep = "_")
+df_sub$Label <- paste(df_sub$host, df_sub$country, df_sub$sex, df_sub$Sample)
+
+df_sub$Group <- factor(df_sub$Group, levels = unique(df_sub$Group))
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+df_sub <- df_sub[order(df_sub$host, df_sub$country, df_sub$sex, df_sub$Sample), ]
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+ggplot(df_sub, aes(x = Label, y = Abundance, fill = Genus)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = final_cols) +
+  scale_x_discrete(drop = FALSE) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  )
+
+meta_f <- meta[meta$Field_Lab2 == "field", ]
+ps_f <- prune_samples(rownames(meta_f), ps)
+
+alpha_df <- get_alpha(ps_f, meta_f)
+
+ggplot(alpha_df, aes(x = sex, y = Shannon, fill = sex)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.3, width = 0.6) +
+  geom_jitter(aes(color = sex),
+              width = 0.15,
+              alpha = 0.7,
+              size = 2) +
+  facet_wrap(country ~ host) +
+  theme_classic() +
+  guides(color = "none")
+
+bray <- phyloseq::distance(ps_f, method = "bray")
+ord <- ordinate(ps_f, method = "PCoA", distance = bray)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = sex)) +
+  geom_point(size = 3) +
+  facet_grid(country ~ host, scales = "fixed") +
+  coord_fixed() +
+  theme_classic() +
+  theme(
+    panel.spacing = unit(1, "lines")
+  )
+######################################################################################
+#Lab vs field for each locality
+
+df_sub <- subset(df, host == "apple" & Region %in% c("NW", "NE"))
+
+df_sub$Region <- as.character(df_sub$Region)
+df_sub$Field_Lab2 <- as.character(df_sub$Field_Lab2)
+df_sub$Population <- as.character(df_sub$Population)
+df_sub$Sample <- as.character(df_sub$Sample)
+
+# create hierarchical grouping key
+df_sub$Group <- paste(df_sub$Region, df_sub$Field_Lab2, df_sub$Population, sep = "_")
+df_sub$Label <- paste(df_sub$Region, df_sub$Field_Lab2, df_sub$Population, df_sub$Sample)
+
+df_sub$Group <- factor(df_sub$Group, levels = unique(df_sub$Group))
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+df_sub <- df_sub[order(df_sub$Region, df_sub$Field_Lab2, df_sub$Population, df_sub$Sample), ]
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+ggplot(df_sub, aes(x = Label, y = Abundance, fill = Genus)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = final_cols) +
+  scale_x_discrete(drop = FALSE) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  )
+
+meta_f <- meta[meta$host == "apple" & meta$Region %in% c("NW", "NE"), ]
+ps_f <- prune_samples(rownames(meta_f), ps)
+
+alpha_df <- get_alpha(ps_f, meta_f)
+
+ggplot(alpha_df, aes(x = Field_Lab2, y = Shannon, fill = Field_Lab2)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.3, width = 0.6) +
+  geom_jitter(aes(color = Field_Lab2),
+              width = 0.15,
+              alpha = 0.7,
+              size = 2) +
+  facet_wrap(~ Region) +
+  theme_classic() +
+  guides(color = "none")
+
+bray <- phyloseq::distance(ps_f, method = "bray")
+ord <- ordinate(ps_f, method = "PCoA", distance = bray)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = Field_Lab2)) +
+  geom_point(size = 3) +
+  facet_wrap(~ Region) +
+  theme_classic()
+
+######################################################################################
+#Nymphs vs adults
+
+df_sub <- subset(df, host == "apple" & Region %in% c("NW", "NE") & Field_Lab2 == "lab")
+
+df_sub$Region <- as.character(df_sub$Region)
+df_sub$life_stage <- as.character(df_sub$life_stage)
+df_sub$Population <- as.character(df_sub$Population)
+df_sub$Sample <- as.character(df_sub$Sample)
+
+
+# create hierarchical grouping key
+df_sub$Group <- paste(df_sub$Region, df_sub$life_stage, df_sub$Population, sep = "_")
+df_sub$Label <- paste(df_sub$Region, df_sub$life_stage, df_sub$Population, df_sub$Sample)
+
+df_sub$Group <- factor(df_sub$Group, levels = unique(df_sub$Group))
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+df_sub <- df_sub[order(df_sub$Region, df_sub$life_stage, df_sub$Population, df_sub$Sample), ]
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+ggplot(df_sub, aes(x = Label, y = Abundance, fill = Genus)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = final_cols) +
+  scale_x_discrete(drop = FALSE) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  )
+
+meta_f <- meta[meta$host == "apple" & meta$Region %in% c("NW", "NE") & meta$Field_Lab2 == "lab", ]
+ps_f <- prune_samples(rownames(meta_f), ps)
+
+alpha_df <- get_alpha(ps_f, meta_f)
+
+ggplot(alpha_df, aes(x = life_stage, y = Shannon, fill = life_stage)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.3, width = 0.6) +
+  geom_jitter(aes(color = life_stage),
+              width = 0.15,
+              alpha = 0.7,
+              size = 2) +
+  facet_wrap(~ Region) +
+  theme_classic() +
+  guides(color = "none")
+
+bray <- phyloseq::distance(ps_f, method = "bray")
+ord <- ordinate(ps_f, method = "PCoA", distance = bray)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = life_stage)) +
+  geom_point(size = 3) +
+  facet_wrap(~ Region) +
+  theme_classic()
+
+######################################################################################
+#Phytoplasma +ve vs -ve
+
+df_sub <- subset(df, host == "apple" & Region %in% c("NW", "NE") & Field_Lab2 == "lab")
+
+df_sub$Region <- as.character(df_sub$Region)
+df_sub$Infectious_Status_Insect <- as.character(df_sub$Infectious_Status_Insect)
+df_sub$Population <- as.character(df_sub$Population)
+df_sub$Sample <- as.character(df_sub$Sample)
+
+
+# create hierarchical grouping key
+df_sub$Group <- paste(df_sub$Region, df_sub$Infectious_Status_Insect, df_sub$Population, sep = "_")
+df_sub$Label <- paste(df_sub$Region, df_sub$Infectious_Status_Insect, df_sub$Population, df_sub$Sample)
+
+df_sub$Group <- factor(df_sub$Group, levels = unique(df_sub$Group))
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+df_sub <- df_sub[order(df_sub$Region, df_sub$Infectious_Status_Insect, df_sub$Population, df_sub$Sample), ]
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+ggplot(df_sub, aes(x = Label, y = Abundance, fill = Genus)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = final_cols) +
+  scale_x_discrete(drop = FALSE) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  )
+
+meta_f <- meta[meta$host == "apple" & meta$Region %in% c("NW", "NE") & meta$Field_Lab2 == "lab", ]
+ps_f <- prune_samples(rownames(meta_f), ps)
+
+alpha_df <- get_alpha(ps_f, meta_f)
+
+ggplot(alpha_df, aes(x = Infectious_Status_Insect, y = Shannon, fill = Infectious_Status_Insect)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.3, width = 0.6) +
+  geom_jitter(aes(color = Infectious_Status_Insect),
+              width = 0.15,
+              alpha = 0.7,
+              size = 2) +
+  facet_wrap(~ Region) +
+  theme_classic() +
+  guides(color = "none")
+
+bray <- phyloseq::distance(ps_f, method = "bray")
+ord <- ordinate(ps_f, method = "PCoA", distance = bray)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = Infectious_Status_Insect)) +
+  geom_point(size = 3) +
+  facet_wrap(~ Region) +
+  theme_classic()
+
+ggplot(pcoa_df, aes(PC1, PC2, color = Infectious_Status_Insect)) +
+  geom_point(size = 3) +
+  geom_text_repel(
+    aes(label = Sample),
+    size = 3,
+    max.overlaps = Inf,
+    force = 2
+  ) +
+  facet_wrap(~ Region) +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  theme(plot.margin = margin(5.5, 40, 5.5, 5.5))
+````
 
 ## Reanalyse Maja data <a name="13"></a>
 
