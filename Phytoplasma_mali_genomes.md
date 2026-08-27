@@ -274,4 +274,1818 @@ wc -l /data/users/theaven/phytolasma/raw_data/minion/45UP/kraken2/output_nt.txt 
 sort -t$'\t' -k4,4nr /data/users/theaven/phytolasma/raw_data/minion/45UP/kraken2/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/45UP/kraken2/output_nt_by_length.txt #long reads are Malus, longest phytoplasma read is 5,283, and there are only ~23 of them
 ```
 ![Kraken2 read classifications](figures/45up-kraken-pavian.png)
+
 Most of the long reads are classified to Malus, and the longest phytoplasma read is only 5,283bp, in line with the BLAST results, only ~23 reads are classified to phytoplasma (Mollicutes).
+
+
+
+```bash
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/busco_6.1.0--pyhdfd78af_1 busco --list-datasets
+for genome in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do
+  Task=busco
+  Database=mycoplasmatota
+  OutDir=$(basename "$genome" .fasta)/busco
+  ID=$(basename "$genome" .fasta)
+  mkdir -p $OutDir
+  ExpectedOutput="$OutDir"/1/${OutPrefix}
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Scripts/unibz/run_busco.sh "$genome" "$Database" "$OutDir" "$ID")
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done
+```
+
+```bash
+echo rpAP15f-mod-rpAP15r3 TGCTGAAGCTAATTTGGC CCCATGAATATTAACCTCCT >> /data/users/theaven/phytolasma/pop/rpl22_primers.txt
+for genome in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do 
+	Out=$(echo $genome | sed 's@.fasta@@g')_rpl22.txt 
+	primersearch \
+	-seqall "$genome" \
+	-infile /data/users/theaven/phytolasma/pop/rpl22_primers.txt \
+	-mismatchpercent 10 \
+	-outfile "$Out" 
+done
+
+for genome in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do 
+	Out=$(echo $genome | sed 's@.fasta@@g')_rpl22_amplicon.fasta  
+seqkit amplicon \
+      -F TGCTGAAGCTAATTTGGC \
+      -R CCCATGAATATTAACCTCCT \
+      -m 1 \
+      "$genome" \
+      > /data/users/theaven/phytolasma/pop/"$Out"
+done
+```
+```bash
+echo AP13-AP10 CTACAGATTTCACACATTGG TTTTCACAACGTATTCCGCC >> /data/users/theaven/phytolasma/pop/AP13-10_primers.txt
+for genome in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do 
+	Out=$(echo $genome | sed 's@.fasta@@g')_1310.txt 
+	primersearch \
+	-seqall "$genome" \
+	-infile /data/users/theaven/phytolasma/pop/AP13-10_primers.txt \
+	-mismatchpercent 10 \
+	-outfile "$Out" 
+done
+
+echo AP5-AP4 TCTTTTAATCTTCAACCATGGC CCAATGTGTGAAATCTGTAG >> /data/users/theaven/phytolasma/pop/AP5-4_primers.txt
+for genome in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do 
+	Out=$(echo $genome | sed 's@.fasta@@g')_54.txt 
+	primersearch \
+	-seqall "$genome" \
+	-infile /data/users/theaven/phytolasma/pop/AP5-4_primers.txt \
+	-mismatchpercent 10 \
+	-outfile "$Out" 
+done
+
+echo AP8-AP10 CAAACAACAATTTTAAAACC TTTTCACAACGTATTCCGCC >> /data/users/theaven/phytolasma/pop/AP8-10_primers.txt
+for genome in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do 
+	Out=$(echo $genome | sed 's@.fasta@@g')_810.txt 
+	primersearch \
+	-seqall "$genome" \
+	-infile /data/users/theaven/phytolasma/pop/AP8-10_primers.txt \
+	-mismatchpercent 10 \
+	-outfile "$Out" 
+done
+
+####
+
+for genome in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do 
+	Out=$(echo $genome | sed 's@.fasta@@g')_1310_amplicon.fasta 
+seqkit amplicon \
+      -F CTACAGATTTCACACATTGG \
+      -R TTTTCACAACGTATTCCGCC \
+      -m 1 \
+      "$genome" \
+      > /data/users/theaven/phytolasma/pop/"$Out"
+done
+
+for genome in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do 
+	Out=$(echo $genome | sed 's@.fasta@@g')_54_amplicon.fasta 
+seqkit amplicon \
+      -F TCTTTTAATCTTCAACCATGGC \
+      -R CCAATGTGTGAAATCTGTAG \
+      -m 1 \
+      "$genome" \
+      > /data/users/theaven/phytolasma/pop/"$Out"
+done
+
+for genome in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do 
+	Out=$(echo $genome | sed 's@.fasta@@g')_810_amplicon.fasta 
+seqkit amplicon \
+      -F CAAACAACAATTTTAAAACC \
+      -R TTTTCACAACGTATTCCGCC \
+      -m 1 \
+      "$genome" \
+      > /data/users/theaven/phytolasma/pop/"$Out"
+done
+```
+```bash
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/sourmash_4.9.4--hdfd78af_0 sourmash sketch dna \
+	-p k=21,k=31,k=51 \
+	-o phytoplasma_genomes.sig \
+	AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta 
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/sourmash_4.9.4--hdfd78af_0 sourmash compare \
+	phytoplasma_genomes.sig \
+	-k 51 --dna \
+	-o phytoplasma_compare 
+
+#0-AT1-13_ET.fasta       [1.    0.468 0.72  0.968 0.478]
+#1-AT2-62B.fasta         [0.468 1.    0.482 0.462 0.592]
+#2-AT1-AO-11_ET.fasta    [0.72  0.482 1.    0.714 0.466]
+#3-AT2_Cmel17.fasta      [0.968 0.462 0.714 1.    0.471]
+#4-GCF_000026205.1...    [0.478 0.592 0.466 0.471 1.   ]
+#min similarity in matrix: 0.462
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/sourmash_4.9.4--hdfd78af_0 sourmash plot \
+	phytoplasma_compare \
+    --csv phytoplasma_compare.csv 
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python /data/users/theaven/sourmash_csv_to_newick.py \
+    -i phytoplasma_compare.csv \
+    -o guide_tree.nwk \
+    --clean-labels
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/sourmash_4.9.4--hdfd78af_0 sourmash compare \
+	phytoplasma_genomes.sig \
+	--ani -k 51 --dna \
+	-o phytoplasma_compare2
+
+#0-AT1-13_ET.fasta       [1.    0.991 0.997 1.    0.991]
+#1-AT2-62B.fasta         [0.991 1.    0.992 0.991 0.994]
+#2-AT1-AO-11_ET.fasta    [0.997 0.992 1.    0.996 0.991]
+#3-AT2_Cmel17.fasta      [1.    0.991 0.996 1.    0.991]
+#4-GCF_000026205.1...    [0.991 0.994 0.991 0.991 1.   ]
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/sourmash_4.9.4--hdfd78af_0 sourmash plot \
+	phytoplasma_compare2 \
+    --csv phytoplasma_compare2.csv 
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python /data/users/theaven/sourmash_csv_to_newick.py \
+    -i phytoplasma_compare2.csv \
+    -o guide_tree2.nwk \
+    --clean-labels
+````
+```bash
+cd /data/users/theaven/phytolasma
+module load gnuplot/6.0.0-gcc-12.3.0-637ora5
+for file in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do
+	ID=$(basename "$file" .fasta)
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p GCF_000026205_v_"$ID"  GCF_000026205.1_Phytoplasma_mali.fasta "$file"
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg GCF_000026205_v_"$ID".delta -p GCF_000026205_v_"$ID"
+gnuplot GCF_000026205_v_"$ID".gp
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color GCF_000026205_v_"$ID".delta -t svg -p GCF_000026205_v_"$ID"_x
+gnuplot GCF_000026205_v_"$ID"_x.gp
+done
+```
+```bash
+#AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta
+
+srun -p bioagri  -c 4 --mem 64G --pty bash
+module load pgap/2024-07-18.buid7555
+
+export PGAP_INPUT_DIR=/data/databases/pgap
+
+mkdir -p /data/users/theaven/apptainer/cache 
+mkdir -p /data/users/theaven/apptainer/tmp
+export APPTAINER_CACHEDIR=/data/users/theaven/apptainer/cache 
+export APPTAINER_TMPDIR=/data/users/theaven/apptainer/tmp
+
+mkdir -p /data/users/theaven/singularity/cache 
+mkdir -p /data/users/theaven/singularity/tmp
+export SINGULARITY_CACHEDIR=/data/users/theaven/singularity/cache 
+export SINGULARITY_TMPDIR=/data/users/theaven/singularity/tmp
+
+rm -r /data/users/theaven/phytolasma/AT1-13_ET/pgap
+for genome in AT1-13_ET.fasta ; do 
+	Out=$(echo $genome | sed 's@.fasta@@g')
+	pgap.py -r -o /data/users/theaven/phytolasma/"$Out"/pgap -g "$genome" -s 'Candidatus phytolasma mali' --taxcheck --auto-correct-tax --prefix "$Out" -c 4 --no-self-update --use-version 2024-07-18.build7555
+done
+#PGAP does not work due to permissions
+
+apptainer pull docker://ncbi/pgap:2026-06-18.build8602
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/pgap_2026-06-18.build8602.sif /pgap/pgap/scripts/pgap.py --version 
+mkdir -p /data/users/theaven/pgap_data
+cd /data/users/theaven/pgap_data
+wget https://s3.amazonaws.com/ncbi-pgap/input-data/input-2026-06-18.build8602.tgz
+
+srun -p bioagri  -c 4 --mem 64G --pty bash
+wget -O pgap.py
+
+mkdir -p /data/users/theaven/apptainer/cache 
+mkdir -p /data/users/theaven/apptainer/tmp
+export APPTAINER_CACHEDIR=/data/users/theaven/apptainer/cache 
+export APPTAINER_TMPDIR=/data/users/theaven/apptainer/tmp
+
+mkdir -p /data/users/theaven/singularity/cache 
+mkdir -p /data/users/theaven/singularity/tmp
+export SINGULARITY_CACHEDIR=/data/users/theaven/singularity/cache 
+export SINGULARITY_TMPDIR=/data/users/theaven/singularity/tmp
+
+export PGAP_INPUT_DIR=/data/users/theaven/pgap_data
+./pgap.py --update
+
+pgap.py -r -o mg37_results -g $HOME/.pgap/test_genomes/MG37/ASM2732v1.annotation.nucleotide.1.fasta -s "Mycoplasmoides genitalium"
+
+for genome in AT1-13_ET.fasta ; do 
+  Out=$(echo $genome | sed 's@.fasta@@g')
+  /data/users/theaven/pgap_data/pgap.py -r -o /data/users/theaven/phytolasma/"$Out"/pgap -g "$genome" -s 'Candidatus phytolasma mali' --taxcheck --auto-correct-tax --prefix "$Out" -c 4  
+done
+
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  --env PGAP_INPUT_DIR=/data/users/theaven/pgap_data \
+  /data/users/theaven/pgap_2026-06-18.build8602.sif \
+  /pgap/pgap/scripts/pgap.py \
+  --update -D /opt/share/spack/spack-1.0.2/opt/spack/linux-zen2/apptainer-1.4.1-3coysxnrq446irq2yjlkcm5s4l62jv3t/bin/apptainer
+```
+```bash
+srun -p bioagri  -c 4 --mem 16G --pty bash
+module load prokka/1.14.6
+for genome in AT1-13_ET.fasta AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta; do
+    Out=$(basename "$genome" .fasta)
+    prokka \
+        --outdir "/data/users/theaven/phytolasma/$Out" \
+        --prefix "$Out" \
+        --cpus 4 \
+        --kingdom Bacteria \
+        --genus Candidatus \
+        --species phytoplasma \
+        --strain mali \
+        --gcode 4 \
+        --compliant \
+        --rfam \
+        --force \
+        "$genome"
+
+done
+```
+```bash
+sed -i 's/-/_/g' guide_tree2.nwk
+
+((AT2_62B_fasta,GCF_000026205_1_Phytoplasma_mali_fasta),((AT2_Cmel17_fasta,AT1_13_ET_fasta),AT1_AO_11_ET_fasta));
+
+salloc --cpus-per-task=4 --mem=200G --time=02:00:00 -p bioagri
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+cat guide_tree2.nwk > seqFile.txt
+cat >> seqFile.txt <<EOF
+GCF_000026205_1_Phytoplasma_mali_fasta /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali.fasta
+AT2_62B_fasta /data/users/theaven/phytolasma/AT2-62B.fasta
+AT2_Cmel17_fasta /data/users/theaven/phytolasma/AT2_Cmel17.fasta
+AT1_13_ET_fasta /data/users/theaven/phytolasma/AT1-13_ET.fasta
+AT1_AO_11_ET_fasta /data/users/theaven/phytolasma/AT1-AO-11_ET.fasta
+EOF
+
+rm -rf /tmp/phytoplasma_jobstore
+
+cd /data/users/theaven/phytolasma/cactus
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_3.1.4--py313h449c32d_0 \
+  cactus \
+  /tmp/phytoplasma_jobstore \
+  ../seqFile.txt \
+  phytoplasma.hal \
+  --maskMode none \
+  --maxCores 4 \
+  --batchSystem single_machine \
+  --binariesMode local \
+  --branchScale 1.0 \
+  --defaultDisk 200G
+
+
+#  --root GCF_000026205_1_Phytoplasma_mali_fasta \
+
+#--maskMode none prevents Cactus preprocessing masking repeats/low complexity regions - preserving unique insertions, population-specific regions, diagnostic sequences - slightly slower, more spurious alignments possible - For tiny phytoplasma genomes, the cost is negligible. Sourmash dissimilarities are not extreme enough to justify higher branch scaling. --fastaga is useful for very large genome collections where speed matters. For marker discovery, standard Cactus alignment is preferable. --root at the published reference genome
+
+
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_3.1.4--py313h449c32d_0 \
+  halStats  \
+  --genomes phytoplasma.hal 
+#Anc0 Anc1 GCF_000026205_1_Phytoplasma_mali_fasta AT2_62B_fasta Anc2 Anc3 AT2_Cmel17_fasta AT1_13_ET_fasta AT1_AO_11_ET_fasta
+
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_3.1.4--py313h449c32d_0 \
+  halStats  \
+  --tree phytoplasma.hal
+#((GCF_000026205_1_Phytoplasma_mali_fasta:0.005798,AT2_62B_fasta:0.005798)Anc1:0.0029,((AT2_Cmel17_fasta:0.000323,AT1_13_ET_fasta:0.000323)Anc3:0.003207,AT1_AO_11_ET_fasta:0.00353)Anc2:0.005169)Anc0;
+
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_3.1.4--py313h449c32d_0 \
+	hal2maf phytoplasma.hal phytoplasma.maf
+
+apptainer exec \
+  --bind /data:/data \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_3.1.4--py313h449c32d_0 \
+  hal2fasta \
+  phytoplasma.hal \
+  GCF_000026205_1_Phytoplasma_mali_fasta \
+  --subtree \
+  --outFaPath all_genomes.fa
+
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_3.1.4--py313h449c32d_0 \
+	hal2vcf \
+  --refGenome GCF_000026205_1_Phytoplasma_mali_fasta \
+  phytoplasma.hal > variants.vcf
+
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_3.1.4--py313h449c32d_0 \
+	halSnps phytoplasma.hal > snps.txt
+
+
+####
+salloc --cpus-per-task=4 --mem=32G --time=02:00:00 -p bioagri
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+tail -n +2 /data/users/theaven/phytolasma/seqFile.txt > genomes.txt
+rm -r /tmp/jobstore
+rm -r /tmp/coordinationDir
+mkdir /tmp/coordinationDir
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_v3.1.4.sif \
+  cactus-pangenome \
+  /tmp/jobstore \
+  --coordinationDir /tmp/coordinationDir \
+  genomes.txt \
+  --outDir pangenome \
+  --outName phytoplasma_mali_20260721 \
+  --reference GCF_000026205_1_Phytoplasma_mali_fasta \
+  --vcf full  \
+  --gfa full \
+  --gbz full \
+  --xg full \
+  --odgi full \
+  --clip 0 \
+  --filter 0 \
+  --mgCores 4 \
+  --consCores 4 \
+  --indexCores 4 \
+  --mgMemory 16G \
+  --consMemory 16G
+
+#set --clip low as bacterial genomes are small and accessory regions can be biologically important. --filter 0 to capture Accessory genome / plasmids / mobile elements / rare genes + do not use --collapse
+#--vcf full, generate the VCF against the unfiltered, unclipped pangenome graph. --vcf clip, Generate variants from the graph after clipping long unaligned regions (default behavior). --vcf filter, Generate variants after frequency filtering (removing rare graph sequences according to --filter). 
+
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_3.1.4--py313h449c32d_0 \
+  halStats pangenome/phytoplasma_mali_20260721.full.hal
+
+#(AT1_13_ET_fasta:1,AT2_Cmel17_fasta:1,AT2_62B_fasta:1,AT1_AO_11_ET_fasta:1,GCF_000026205_1_Phytoplasma_mali_fasta:1)Anc0;
+
+#GenomeName, NumChildren, Length, NumSequences, NumTopSegments, NumBottomSegments
+#Anc0, 5, 961448, 109, 0, 4358
+#AT1_13_ET_fasta, 0, 564370, 1, 2481, 0
+#AT2_Cmel17_fasta, 0, 601757, 1, 2157, 0
+#AT2_62B_fasta, 0, 625685, 4, 3370, 0
+#AT1_AO_11_ET_fasta, 0, 566926, 3, 3131, 0
+#GCF_000026205_1_Phytoplasma_mali_fasta, 0, 601943, 1, 3113, 0
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/odgi_0.9.4--h077b44d_0 odgi viz \
+-i pangenome/phytoplasma_mali_20260721.full.og \
+-o phytoplasma_pangenome.png \
+-x 4000 \
+-y 100
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/odgi_0.9.4--h077b44d_0 odgi stats \
+-i pangenome/phytoplasma_mali_20260721.full.og
+#length nodes   edges   paths   steps
+#937279  35701   48488   10      97022
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/odgi_0.9.4--h077b44d_0 odgi paths \
+-i pangenome/phytoplasma_mali_20260721.full.og \
+-L
+
+echo "GCF_000026205_1_Phytoplasma_mali_fasta#0#GCF_000026205_1_Phytoplasma_mali_fasta" \
+> reference.path.txt
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/odgi_0.9.4--h077b44d_0 odgi viz \
+-i pangenome/phytoplasma_mali_20260721.full.og \
+-p reference.path.txt \
+-o GCF_000026205_reference.png \
+-x 1000 \
+-y 50
+
+
+
+
+module load bcftools/1.19-gcc-12.3.0
+bcftools stats \
+pangenome/phytoplasma_mali_20260721.full.vcf.gz > vcf.stats.txt
+#6015 SNPs
+#1033 MNPs (multi-nucleotide substitutions)
+#782 indels
+#222 "other" variants (complex alleles, symbolic alleles, etc.)
+
+grep "^SN" vcf.stats.txt
+
+
+
+
+mkdir -p /data/users/theaven/phytolasma/snpeff/data/phytoplasma/
+cp /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.gff /data/users/theaven/phytolasma/snpeff/data/phytoplasma/genes.gff
+cp /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.faa /data/users/theaven/phytolasma/snpeff/data/phytoplasma/protein.fa
+cp /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.ffn /data/users/theaven/phytolasma/snpeff/data/phytoplasma/cds.fa
+cp /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali.fasta /data/users/theaven/phytolasma/snpeff/data/phytoplasma/sequences.fa
+echo "# Phytoplasma mali custom genome" > /data/users/theaven/phytolasma/snpeff/snpEff.config
+echo "data.dir = ./data" >> /data/users/theaven/phytolasma/snpeff/snpEff.config
+echo "phytoplasma.genome : Phytoplasma_mali" >>  /data/users/theaven/phytolasma/snpeff/snpEff.config
+cd /data/users/theaven/phytolasma/snpeff
+sed -i 's/gnl|Prokka|MDPFDBLG_1/GCF_000026205_1_Phytoplasma_mali_fasta/g' data/phytoplasma/genes.gff
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+/data/users/theaven/snpeff_5.4.0c--hdfd78af_0 \
+snpEff \
+build \
+-c /data/users/theaven/phytolasma/snpeff/snpEff.config \
+-gff3 \
+-noCheckCds \
+-noCheckProtein \
+phytoplasma
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/snpeff_5.4.0c--hdfd78af_0 snpEff \
+-c /data/users/theaven/phytolasma/snpeff/snpEff.config \
+phytoplasma \
+/data/users/theaven/phytolasma/cactus/pangenome/phytoplasma_mali_20260721.full.vcf.gz \
+> annotated.vcf
+
+grep -m5 "ANN=" annotated.vcf
+grep -v "^#" annotated.vcf | \
+grep -o "ANN=[^;]*" | \
+cut -d',' -f1 | \
+cut -d'|' -f2 | \
+sort | uniq -c
+#     25 conservative_inframe_deletion
+#     50 conservative_inframe_insertion
+#      1 conservative_inframe_insertion&synonymous_variant
+#     27 disruptive_inframe_deletion
+#     29 disruptive_inframe_insertion
+#     26 downstream_gene_variant
+#      2 feature_ablation
+#    116 frameshift_variant
+#     55 frameshift_variant&missense_variant
+#      2 frameshift_variant&splice_region_variant
+#      6 frameshift_variant&start_lost
+#      1 frameshift_variant&start_lost&stop_retained_variant&splice_region_variant
+#     15 frameshift_variant&stop_gained
+#      6 frameshift_variant&stop_gained&missense_variant
+#      1 frameshift_variant&stop_gained&start_lost
+#      2 frameshift_variant&stop_gained&synonymous_variant
+#      1 frameshift_variant&stop_lost
+#      1 frameshift_variant&stop_lost&missense_variant&splice_region_variant
+#      2 frameshift_variant&stop_lost&splice_region_variant
+#      1 frameshift_variant&stop_lost&splice_region_variant&synonymous_variant
+#      1 frameshift_variant&stop_lost&stop_retained_variant&splice_region_variant
+#      6 frameshift_variant&synonymous_variant
+#      1 gene_fusion
+#   3385 missense_variant
+#      9 missense_variant&conservative_inframe_deletion
+#     16 missense_variant&conservative_inframe_insertion
+#      9 missense_variant&disruptive_inframe_deletion
+#      8 missense_variant&disruptive_inframe_insertion
+#     10 start_lost
+#      2 start_lost&conservative_inframe_deletion
+#      1 start_lost&disruptive_inframe_insertion
+#      1 start_lost&missense_variant&conservative_inframe_deletion
+#     63 stop_gained
+#      1 stop_gained&conservative_inframe_deletion
+#      6 stop_gained&conservative_inframe_insertion
+#      3 stop_gained&disruptive_inframe_deletion
+#      5 stop_gained&disruptive_inframe_insertion
+#      1 stop_gained&missense_variant&conservative_inframe_insertion
+#      2 stop_gained&missense_variant&disruptive_inframe_deletion
+#      2 stop_lost
+#      2 stop_lost&conservative_inframe_deletion&splice_region_variant
+#     10 stop_lost&splice_region_variant
+#      2 stop_lost&stop_retained_variant&splice_region_variant&intron_variant
+#      1 stop_retained_variant
+#   1736 synonymous_variant
+#      1 transcript_ablation
+#      2 transcript_ablation&start_lost&splice_region_variant&synonymous_variant
+#   2027 upstream_gene_variant
+
+grep -v "^#" annotated.vcf | wc -l
+#7682
+
+#With lapo vcf:
+
+/data/users/theaven/phytolasma/cactus/pangenome/phytoplasma_mali_20260721.full.vcf.gz
+zcat /data/users/theaven/phytolasma/cactus/pangenome/phytoplasma_mali_20260721.full.vcf.gz | grep -v '^#' | head
+
+cd /data/users/theaven/phytolasma/snpeff
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/snpeff_5.4.0c--hdfd78af_0 snpEff \
+-c /data/users/theaven/phytolasma/snpeff/snpEff.config \
+phytoplasma \
+/data/users/theaven/phytolasma/Erika/Cmel_V1_Ca_mali_GPU.q30Q30_bcfNorm_SNPsIndel_SNPs_Filtered.vcf.gz.recode.vcf.gz \
+> Erika_annotated.vcf
+
+bcftools view -i 'COUNT(GT="alt") > 0' Erika_annotated.vcf -o Erika_annotated_variants.vcf
+
+grep -m5 "ANN=" Erika_annotated_variants.vcf
+grep -v "^#" Erika_annotated_variants.vcf | \
+grep -o "ANN=[^;]*" | \
+cut -d',' -f1 | \
+cut -d'|' -f2 | \
+sort | uniq -c
+#     15 downstream_gene_variant
+#   2802 missense_variant
+#      1 splice_region_variant&stop_retained_variant
+#      1 start_lost
+#     39 stop_gained
+#      3 stop_lost
+#      6 stop_lost&splice_region_variant
+#      1 stop_retained_variant
+#   1988 synonymous_variant
+#   1248 upstream_gene_variant
+
+cat > samples.txt <<'EOF'
+Cmel64-8
+Cmel64-2
+Cmel53-F3
+Cmel53-F4
+Cmel86-3
+Cmel84-2
+Cmel53-F2
+Cmel57-2
+Cmel57-9
+Cmel22-8
+Cmel84-1
+Cmel61-10
+EOF
+
+bcftools view -S samples.txt Erika_annotated_variants.vcf -Oz -o Erika_annotated_variants_subset.vcf
+bcftools view -i 'COUNT(GT="mis")==0' Erika_annotated_variants_subset.vcf -Oz -o Erika_annotated_variants_subset_complete.vcf
+bcftools view -i 'COUNT(GT="alt") > 0' Erika_annotated_variants_subset_complete.vcf -o Erika_annotated_variants_subset_complete_variants.vcf
+bcftools view -v snps Erika_annotated_variants_subset_complete_variants.vcf -Oz -o Erika_annotated_variants_subset_complete_variants_snps.vcf
+
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+--bind /tmp:/tmp \
+/data/users/theaven/vcf2dis_1.53e.sif VCF2Dis \
+-i /data/users/theaven/phytolasma/snpeff/Erika_annotated_variants_subset_complete_variants_snps.vcf \
+-o /data/users/theaven/phytolasma/snpeff/Erika_annotated_variants_subset_complete_variants_snps.mat
+
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+--bind /tmp:/tmp \
+~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/NBI/mat2csv.py \
+/data/users/theaven/phytolasma/snpeff/Erika_annotated_variants_subset_complete_variants_snps.mat
+
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+--bind /tmp:/tmp \
+~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/NBI/csv2dist.py \
+/data/users/theaven/phytolasma/snpeff/Erika_annotated_variants_subset_complete_variants_snps.csv
+
+#Download and input to splitstree
+
+bcftools query \
+    -f '[%SAMPLE\t%DP\n]' \
+    Erika_annotated_variants_subset_complete_variants_snps.vcf > sample_depths.txt
+
+awk '
+{
+    if ($2 != ".") {
+        n[$1]++
+        sum[$1] += $2
+        if ($2 > max[$1]) max[$1] = $2
+        if ($2 < min[$1] || min[$1] == "") min[$1] = $2
+    }
+}
+END {
+    for (s in n)
+        printf "%s\tN=%d\tmean_DP=%.2f\tmin=%d\tmax=%d\n",
+               s,n[s],sum[s]/n[s],min[s],max[s]
+}' sample_depths.txt | sort
+
+#Cmel22-8        N=3441  mean_DP=5.85    min=1   max=32
+#Cmel53-F2       N=3441  mean_DP=14.22   min=1   max=46
+#Cmel53-F3       N=3441  mean_DP=92.87   min=5   max=238
+#Cmel53-F4       N=3441  mean_DP=65.49   min=5   max=209
+#Cmel57-2        N=3441  mean_DP=7.98    min=1   max=45
+#Cmel57-9        N=3441  mean_DP=7.58    min=1   max=44
+#Cmel61-10       N=3441  mean_DP=3.64    min=1   max=27
+#Cmel64-2        N=3441  mean_DP=207.25  min=1   max=280
+#Cmel64-8        N=3441  mean_DP=215.99  min=1   max=285
+#Cmel84-1        N=3441  mean_DP=3.68    min=1   max=59
+#Cmel84-2        N=3441  mean_DP=17.82   min=1   max=171
+#Cmel86-3        N=3441  mean_DP=40.26   min=3   max=232
+
+bcftools query \
+    -f '[%SAMPLE\t%GT\t%DP\t%AD\n]' \
+    Erika_annotated_variants_subset_complete_variants_snps.vcf > sample_genotypes.txt
+
+awk '
+BEGIN {OFS="\t"}
+{
+    sample=$1
+    gt=$2
+
+    if (gt != "./.") {
+        total[sample]++
+        if (gt == "0/1" || gt == "1/0")
+            het[sample]++
+    }
+}
+END {
+    print "Sample","Called_sites","Heterozygous","Het_fraction","Het_percent"
+    for (s in total)
+        printf "%s\t%d\t%d\t%.5f\t%.2f%%\n",
+               s,total[s],het[s],het[s]/total[s],100*het[s]/total[s]
+}' sample_genotypes.txt | sort
+
+#Sample  Called_sites    Heterozygous    Het_fraction    Het_percent
+#Cmel22-8        3441    496     0.14414 14.41%
+#Cmel53-F2       3441    137     0.03981 3.98%
+#Cmel53-F3       3441    124     0.03604 3.60%
+#Cmel53-F4       3441    131     0.03807 3.81%
+#Cmel57-2        3441    280     0.08137 8.14%
+#Cmel57-9        3441    332     0.09648 9.65%
+#Cmel61-10       3441    122     0.03545 3.55%
+#Cmel64-2        3441    132     0.03836 3.84%
+#Cmel64-8        3441    132     0.03836 3.84%
+#Cmel84-1        3441    93      0.02703 2.70%
+#Cmel84-2        3441    139     0.04040 4.04%
+#Cmel86-3        3441    170     0.04940 4.94%
+
+bcftools query \
+    -f '[%SAMPLE\t%GT\t%DP\t%AD\n]' \
+    Erika_annotated_variants_subset_complete_variants_snps.vcf \
+    > mixture_screen_raw.txt
+
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+--bind /tmp:/tmp \
+~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/unibz/screen_mixtures.py
+
+column -t mixture_screen_summary.tsv
+
+#Sample     Called_sites  Mean_DP  Median_DP  DP>=5  Het_calls  Het_fraction  MAF>=5%  MAF>=10%  MAF>=20%  MAF>=30%  #MAF>=40%
+#Cmel22-8   3441          5.85     5.00       1973   496        0.14414       56       54        49        36        22
+#Cmel53-F2  3441          14.22    13.00      3380   137        0.03981       146      124       93        70        33
+#Cmel53-F3  3441          92.87    86.00      3441   124        0.03604       158      135       108       66        28
+#Cmel53-F4  3441          65.49    62.00      3441   131        0.03807       157      133       94        65        40
+#Cmel57-2   3441          7.98     7.00       2657   280        0.08137       80       76        61        48        36
+#Cmel57-9   3441          7.58     7.00       2537   332        0.09648       84       82        77        59        38
+#Cmel61-10  3441          3.64     3.00       991    122        0.03545       70       67        61        37        22
+#Cmel64-2   3441          207.25   216.00     3429   132        0.03836       172      151       108       64        29
+#Cmel64-8   3441          215.99   224.00     3431   132        0.03836       167      147       110       58        30
+#Cmel84-1   3441          3.68     3.00       943    93         0.02703       32       31        24        12        4
+#Cmel84-2   3441          17.82    14.00      3277   139        0.04040       162      133       97        70        38
+#Cmel86-3   3441          40.26    33.00      3436   170        0.04940       184      166       111       67        35
+
+bcftools query \
+    -s Cmel53-F3 \
+    -f '%CHROM\t%POS\t%REF\t%ALT[\t%GT\t%DP\t%AD]\n' \
+    Erika_annotated_variants.vcf |
+    awk '$5=="0/1" || $5=="1/0"' |
+    head -30
+
+bcftools view \
+    -m2 -M2 \
+    -v snps \
+    Erika_annotated_variants_subset_complete_variants_snps.vcf \
+    -Oz \
+    -o Erika_biallelic_snps.vcf.gz
+
+bcftools index Erika_biallelic_snps.vcf.gz
+plink2 \
+    --vcf Erika_biallelic_snps.vcf.gz \
+    --make-bed \
+    --out three_groups
+
+cat > groups.txt << 'EOF'
+0 Cmel22-8 1
+0 Cmel57-2 1
+0 Cmel57-9 1
+0 Cmel64-2 2
+0 Cmel64-8 2
+0 Cmel53-F2 3
+0 Cmel53-F3 3
+0 Cmel53-F4 3
+0 Cmel86-3 3
+0 Cmel84-1 3
+0 Cmel84-2 3
+0 Cmel61-10 3
+EOF
+
+plink2 \
+    --bfile three_groups \
+    --pheno groups.txt \
+    --make-bed \
+    --out three_groups_labeled
+
+plink2 \
+    --bfile three_groups_labeled \
+    --pheno groups.txt \
+    --glm allow-no-covars \
+    --out glm_results
+
+awk '$12 < 0.001 {print $0}' glm_results.group.glm.linear | sort -k12,12g
+
+plink2 \
+    --bfile three_groups_labeled \
+    --set-all-var-ids @:#:\$r:\$a \
+    --make-bed \
+    --out three_groups_named
+
+cat > clusters.txt << 'EOF'
+#IID CLUSTER
+Cmel22-8 Group1
+Cmel57-2 Group1
+Cmel57-9 Group1
+Cmel64-2 Group2
+Cmel64-8 Group2
+Cmel53-F2 Group3
+Cmel53-F3 Group3
+Cmel53-F4 Group3
+Cmel86-3 Group3
+Cmel84-1 Group3
+Cmel84-2 Group3
+Cmel61-10 Group3
+EOF
+
+plink2 \
+    --bfile three_groups_named \
+    --pheno clusters.txt \
+    --fst CLUSTER report-variants \
+    --out fst_analysis_named
+
+awk '$5 == 1.0 {print $3}' fst_analysis_named.*.fst.var | sort -u | grep -v "^ID" > fixed_snps.list
+
+# Check total count of fixed markers
+wc -l fixed_snps.list
+#2,083
+
+plink2 \
+    --bfile three_groups_named \
+    --extract fixed_snps.list \
+    --export A \
+    --out group_separating_snps
+
+awk -F':' '{print $1"\t"$2}' fixed_snps.list | sort -u -k1,1 -k2,2n > fixed_positions.tsv
+
+bcftools view -T fixed_positions.tsv Erika_annotated_variants_subset_complete_variants_snps.vcf > group_separating_Erika_annotated_variants_subset_complete_variants_snps.vcf
+
+bcftools query \
+    -f '[%SAMPLE\t%GT\t%DP\t%AD\n]' \
+    group_separating_Erika_annotated_variants_subset_complete_variants_snps.vcf \
+    > mixture_screen_raw2.txt
+
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+--bind /tmp:/tmp \
+~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/unibz/screen_mixtures2.py --input mixture_screen_raw2.txt --output mixture_screen_summary2.tsv
+
+column -t mixture_screen_summary2.tsv
+
+#Sample     Called_sites  Mean_DP  Median_DP  DP>=5  Het_calls  Het_fraction  MAF>=5%  MAF>=10%  MAF>=20%  MAF>=30%  MAF>=40%
+#Cmel22-8   2083          6.79     6.00       1482   57         0.02736       3        3         2         1         1
+#Cmel53-F2  2083          13.75    13.00      2053   9          0.00432       12       7         5         3         2
+#Cmel53-F3  2083          90.35    86.00      2083   6          0.00288       10       8         4         3         2
+#Cmel53-F4  2083          66.00    63.00      2083   5          0.00240       7        5         3         2         2
+#Cmel57-2   2083          8.94     8.00       1758   25         0.01200       6        4         2         1         0
+#Cmel57-9   2083          8.50     8.00       1742   27         0.01296       2        2         1         1         1
+#Cmel61-10  2083          3.53     3.00       558    8          0.00384       4        4         4         1         1
+#Cmel64-2   2083          212.12   219.00     2075   5          0.00240       15       10        4         3         2
+#Cmel64-8   2083          219.38   225.00     2078   4          0.00192       14       6         4         3         2
+#Cmel84-1   2083          3.94     3.00       673    7          0.00336       5        4         2         0         0
+#Cmel84-2   2083          19.77    16.00      1997   12         0.00576       13       11        7         5         3
+#Cmel86-3   2083          43.69    36.00      2081   11         0.00528       14       11        7         4         3
+
+grep -m5 "ANN=" group_separating_Erika_annotated_variants_subset_complete_variants_snps.vcf
+grep -v "^#" group_separating_Erika_annotated_variants_subset_complete_variants_snps.vcf | \
+grep -o "ANN=[^;]*" | \
+cut -d',' -f1 | \
+cut -d'|' -f2 | \
+sort | uniq -c
+
+
+#     4 downstream_gene_variant
+#    836 missense_variant
+#      1 start_lost
+#      8 stop_gained
+#      1 stop_lost&splice_region_variant
+#      1 stop_retained_variant
+#    660 synonymous_variant
+#    572 upstream_gene_variant
+
+
+
+
+echo Cmel22-8 >> group1.txt
+echo Cmel57-2 >> group1.txt
+echo Cmel57-9 >> group1.txt
+
+echo Cmel64-2 >> group2.txt
+echo Cmel64-8 >> group2.txt
+
+echo Cmel53-F2 >> group3.txt
+echo Cmel53-F3 >> group3.txt
+echo Cmel53-F4 >> group3.txt
+echo Cmel86-3 >> group3.txt
+echo Cmel84-1 >> group3.txt
+echo Cmel84-2 >> group3.txt
+echo Cmel61-10 >> group3.txt
+
+bcftools query \
+    -f '%CHROM\t%POS\t%REF\t%ALT[\t%GT\t%DP\t%AD]\n' \
+    Erika_annotated_variants_subset_complete_variants_snps.vcf \
+    > all_SNP_data.tsv
+
+
+
+
+
+
+
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+--bind /tmp:/tmp \
+/data/users/theaven/cactus_v3.1.4.sif \
+halSnps \
+pangenome/phytoplasma_mali_20260721.full.hal \
+GCF_000026205_1_Phytoplasma_mali_fasta \
+AT1_13_ET_fasta,AT1_AO_11_ET_fasta,AT2_62B_fasta,AT2_Cmel17_fasta \
+--tsv pangenome/snps.tsv
+
+awk -F'\t' 'NR==1{next}{n=0;delete allele;for(i=3;i<=NF;i++){if($i!=""){n++;allele[$i]=1}};alleles=0;for(a in allele)alleles++;count[n]++;if(alleles==2)biallelic[n]++}END{print "Samples_with_genotype\tAll_SNPs\tBiallelic_SNPs";for(i=1;i<=10;i++){if(count[i])print i "\t" count[i] "\t" biallelic[i]+0}}' pangenome/snps.tsv
+
+#Samples_with_genotype   All_SNPs        Biallelic_SNPs
+#2       1301    1301
+#3       992     941
+#4       1859    1818
+#5       5548    5402
+
+#Note one MNP in the vcf can become multiple SNPs in snps.tsv
+
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+--bind /tmp:/tmp \
+/data/users/theaven/python3.sif python ~/git_repos/Scripts/unibz/cactus_snps_to_pca.py \
+    --snps pangenome/snps.tsv \
+    --out pangenome/pca_matrix.tsv \
+    --max-missing 1
+```
+```R
+library(ggplot2)
+library(ggrepel)
+library(stringr)
+
+setwd("C:/Users/THeaven/OneDrive - Scientific Network South Tyrol/R")
+set.seed(1)
+
+# Read matrix (correct)
+mat <- read.table(
+  "pca_matrix.tsv",
+  header = TRUE,
+  row.names = 1,
+  sep = "\t",
+  na.strings = "NA",
+  comment.char = ""
+)
+
+geno <- mat[complete.cases(mat), ]
+
+# Check
+dim(geno)
+head(geno)
+
+# Transpose (samples as rows)
+geno_t <- t(geno)
+
+# Run PCA
+pca <- prcomp(
+  geno_t,
+  center = TRUE,
+  scale. = TRUE
+)
+
+# Variance explained
+summary(pca)
+
+# PCA scores
+scores <- as.data.frame(pca$x)
+
+scores$sample <- rownames(scores)
+
+# Define groups
+scores$group <- c(
+  "Reference",
+  "AT1",
+  "AT1",
+  "AT2",
+  "AT2"
+)
+
+# Variance explained
+var_explained <- summary(pca)$importance[2,] * 100
+
+
+# Plot
+ggplot(scores, aes(
+  x = PC1,
+  y = PC2,
+  colour = group,
+  label = sample
+)) +
+  
+  geom_point(size = 4) +
+  
+  geom_text_repel(
+    size = 3.5,
+    box.padding = 0.5,
+    point.padding = 0.5,
+    max.overlaps = Inf,
+    force = 2
+  ) +
+  
+  labs(
+    title = "PCA of cactus SNP matrix",
+    x = paste0("PC1 (", round(var_explained[1],1), "%)"),
+    y = paste0("PC2 (", round(var_explained[2],1), "%)"),
+    colour = "Group"
+  ) +
+  
+  theme_classic()
+
+
+loadings <- pca$rotation
+
+# SNPs contributing most to PC1
+top_snps <- sort(abs(loadings[,1]), decreasing=TRUE)[1:20]
+
+top_snps
+
+
+################################################################
+
+# Read SNP matrix
+snps <- read.table(
+    "pca_matrix.tsv",
+    header = TRUE,
+    sep = "\t",
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+)
+
+# Extract positions from SNP names
+pos <- as.numeric(sub(".*_", "", snps$SNP))
+
+# Sort positions
+pos <- sort(pos)
+
+# Find breaks between non-adjacent SNPs
+breaks <- c(TRUE, diff(pos) != 1)
+
+# Assign consecutive runs
+run_id <- cumsum(breaks)
+
+# Summarise runs
+runs <- data.frame(
+    start = tapply(pos, run_id, min),
+    end = tapply(pos, run_id, max),
+    length = tapply(pos, run_id, length)
+)
+
+# Sort longest stretches first
+runs <- runs[order(runs$length, decreasing = TRUE), ]
+
+# Show longest continuous SNP stretches
+head(runs, 20)
+
+#      start    end length
+#3742 329664 329673     10
+#2525 187512 187519      8
+#3704 329444 329451      8
+#910   75097  75103      7
+#2619 189467 189473      7
+#2660 189683 189689      7
+
+###############################################################
+
+
+# SNP names
+snps <- rownames(geno)
+
+# extract coordinate
+pos <- as.numeric(str_extract(snps, "[0-9]+$"))
+
+# order
+ord <- order(pos)
+
+geno <- geno[ord,]
+pos <- pos[ord]
+
+
+# keep one SNP every 10 kb
+window <- 10
+
+keep <- c(TRUE, diff(pos) > window)
+
+geno_thinned <- geno[keep,]
+
+
+cat("Original SNPs:", nrow(geno), "\n")
+cat("After thinning:", nrow(geno_thinned), "\n")
+
+# impute missing
+for(i in 1:ncol(geno_thinned)){
+  geno_thinned[is.na(geno_thinned[,i]),i] <- mean(geno_thinned[,i], na.rm=TRUE)
+}
+
+
+pca2 <- prcomp(
+  t(geno_thinned),
+  center=TRUE,
+  scale.=TRUE
+)
+
+# Variance explained
+summary(pca2)
+
+# PCA scores
+scores <- as.data.frame(pca2$x)
+
+scores$sample <- rownames(scores)
+
+# Define groups
+scores$group <- c(
+  "Reference",
+  "AT1",
+  "AT1",
+  "AT2",
+  "AT2"
+)
+
+# Variance explained
+var_explained <- summary(pca2)$importance[2,] * 100
+
+
+# Plot
+ggplot(scores, aes(
+  x = PC1,
+  y = PC2,
+  colour = group,
+  label = sample
+)) +
+  
+  geom_point(size = 4) +
+  
+  geom_text_repel(
+    size = 3.5,
+    box.padding = 0.5,
+    point.padding = 0.5,
+    max.overlaps = Inf,
+    force = 2
+  ) +
+  
+  labs(
+    title = "PCA of cactus SNP matrix",
+    x = paste0("PC1 (", round(var_explained[1],1), "%)"),
+    y = paste0("PC2 (", round(var_explained[2],1), "%)"),
+    colour = "Group"
+  ) +
+  
+  theme_classic()
+
+
+loadings <- pca2$rotation
+
+# SNPs contributing most to PC1
+top_snps <- sort(abs(loadings[,1]), decreasing=TRUE)[1:20]
+
+top_snps
+```
+```bash
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+--bind /tmp:/tmp \
+/data/users/theaven/cactus_3.1.4--py313h449c32d_0 \
+hal2maf \
+pangenome/phytoplasma_mali_20260721.full.hal \
+pangenome/pangenome_vs_anc.maf \
+--refGenome Anc0 \
+--targetGenomes AT1_13_ET_fasta,AT1_AO_11_ET_fasta,AT2_62B_fasta,AT2_Cmel17_fasta,GCF_000026205_1_Phytoplasma_mali_fasta
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/unibz/maf_accessory_matrix.py \
+--maf pangenome/pangenome_vs_anc.maf \
+--reference Anc0 \
+--window 1000 \
+--output pangenome/accessory_1kb.tsv
+#The MAF coordinate system and ODGI graph layout are different
+
+
+###
+
+apptainer exec \
+--bind /data:/data \
+/data/users/theaven/odgi_0.9.4--h077b44d_0 \
+odgi paths \
+-i pangenome/phytoplasma_mali_20260721.full.og \
+-H
+
+####
+
+apptainer exec \
+--bind /data:/data \
+/data/users/theaven/odgi_0.9.4--h077b44d_0 \
+odgi paths \
+-i pangenome/phytoplasma_mali_20260721.full.og \
+-H \
+> path_haplotypes.tsv
+
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+/data/users/theaven/python3.sif \
+python ~/git_repos/Scripts/unibz/collapse_odgi_haplotypes.py \
+--input path_haplotypes.tsv \
+--output sample_node_presence.tsv
+
+#Total nodes per sample:
+#sample
+#AT1_13_ET_fasta                           15815
+#AT1_AO_11_ET_fasta                        20661
+#AT2_62B_fasta                             21981
+#AT2_Cmel17_fasta                          13809
+#GCF_000026205_1_Phytoplasma_mali_fasta    21233
+#dtype: int64
+
+#Samples containing duplicated nodes:
+#sample
+#AT1_13_ET_fasta                              0
+#AT1_AO_11_ET_fasta                        2380
+#AT2_62B_fasta                             1143
+#AT2_Cmel17_fasta                             0
+#GCF_000026205_1_Phytoplasma_mali_fasta       0
+#dtype: int64
+
+apptainer exec \
+--bind /data:/data \
+/data/users/theaven/odgi_0.9.4--h077b44d_0 \
+odgi view \
+-i pangenome/phytoplasma_mali_20260721.full.og \
+-g \
+> graph.gfa
+
+grep "^S" graph.gfa | \
+awk '{print $2,length($3)}' \
+> node_lengths.tsv
+
+#Number of nodes: 35701
+#Total sequence length: 937279
+#Mean node length: 26.2536
+#Minimum node length: 1
+#Maximum node length: 1024
+#length_bin      count
+#50      32884
+#100     924
+#150     468
+#200     302
+#250     196
+#300     136
+#350     103
+#400     82
+#450     61
+#500     49
+#550     31
+#600     28
+#650     19
+#700     21
+#750     17
+#800     13
+#850     12
+#900     7
+#950     6
+#1000    5
+#1050    336
+
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+/data/users/theaven/python3.sif \
+python <<'EOF'
+import pandas as pd
+
+df=pd.read_csv(
+    "sample_node_presence.tsv",
+    sep="\t",
+    index_col=0
+)
+
+# nodes present in < all samples
+accessory=df.columns[df.sum(axis=0)<len(df)]
+
+with open("accessory_nodes.txt","w") as f:
+    for n in accessory:
+        f.write(n.replace("node.","")+"\n")
+
+print("Accessory nodes:",len(accessory))
+EOF
+
+#Accessory nodes: 30497
+
+apptainer exec \
+--bind /data:/data \
+--bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+/data/users/theaven/python3.sif \
+python3 ~/git_repos/Scripts/unibz/merge_accessory_regions.py \
+--haplotypes path_haplotypes.tsv \
+--accessory accessory_nodes.txt \
+--output accessory_regions.tsv
+#Merged accessory regions: 44836
+
+```
+
+```bash
+salloc --cpus-per-task=4 --mem=32G --time=02:00:00 -p bioagri
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+tail -n +2 /data/users/theaven/phytolasma/seqFile.txt > genomes.txt
+rm -r /tmp/jobstore
+rm -r /tmp/coordinationDir
+mkdir /tmp/coordinationDir
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_v3.1.4.sif \
+  cactus-pangenome \
+  /tmp/jobstore \
+  --coordinationDir /tmp/coordinationDir \
+  genomes.txt \
+  --outDir pangenome_clip \
+  --outName phytoplasma_mali_20260721 \
+  --reference GCF_000026205_1_Phytoplasma_mali_fasta \
+  --vcf clip  \
+  --gfa clip \
+  --gbz clip \
+  --xg clip \
+  --odgi clip \
+  --clip 10000 \
+  --filter 0 \
+  --mgCores 4 \
+  --consCores 4 \
+  --indexCores 4 \
+  --mgMemory 16G \
+  --consMemory 16G
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/odgi_0.9.4--h077b44d_0 odgi sort \
+-i pangenome_clip/phytoplasma_mali_20260721.og \
+-o pangenome_clip/phytoplasma_mali_20260721.sorted.og \
+-O
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/odgi_0.9.4--h077b44d_0 odgi viz \
+-i pangenome_clip/phytoplasma_mali_20260721.sorted.og \
+-o pangenome_clip/phytoplasma_pangenome.png \
+-x 4000 \
+-y 100
+```
+```bash
+salloc --cpus-per-task=4 --mem=32G --time=02:00:00 -p bioagri
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+tail -n +2 /data/users/theaven/phytolasma/seqFile.txt > genomes.txt
+rm -r /tmp/jobstore
+rm -r /tmp/coordinationDir
+mkdir /tmp/coordinationDir
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  --bind /tmp:/tmp \
+  /data/users/theaven/cactus_v3.1.4.sif \
+  cactus-pangenome \
+  /tmp/jobstore \
+  --coordinationDir /tmp/coordinationDir \
+  genomes.txt \
+  --outDir pangenome_filter \
+  --outName phytoplasma_mali_20260721 \
+  --reference GCF_000026205_1_Phytoplasma_mali_fasta \
+  --vcf filter  \
+  --gfa filter \
+  --gbz filter \
+  --xg filter \
+  --odgi filter \
+  --clip 1000 \
+  --filter 2 \
+  --mgCores 4 \
+  --consCores 4 \
+  --indexCores 4 \
+  --mgMemory 16G \
+  --consMemory 16G
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/odgi_0.9.4--h077b44d_0 odgi stats \
+-i pangenome_filter/phytoplasma_mali_20260721.d2.og
+##length nodes   edges   paths   steps
+#625244  27122   32656   4476    77707
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/odgi_0.9.4--h077b44d_0 odgi sort \
+-i pangenome_filter/phytoplasma_mali_20260721.d2.og \
+-o pangenome_filter/phytoplasma_mali_20260721.sorted.og \
+-O
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/odgi_0.9.4--h077b44d_0 odgi viz \
+-i pangenome_filter/phytoplasma_mali_20260721.sorted.og \
+-o pangenome_filter/phytoplasma_pangenome.png \
+-x 4000 \
+-y 100
+```
+```bash
+mkdir -p /data/users/theaven/phytolasma/synteny/genespace2/AT1_13_ET
+ln -s /data/users/theaven/phytolasma/AT1-13_ET/AT1-13_ET.faa /data/users/theaven/phytolasma/synteny/genespace2/AT1_13_ET/AT1_13_ET.faa
+ln -s /data/users/theaven/phytolasma/AT1-13_ET/AT1-13_ET.gff /data/users/theaven/phytolasma/synteny/genespace2/AT1_13_ET/AT1_13_ET.gff
+
+mkdir -p /data/users/theaven/phytolasma/synteny/genespace2/AT1_AO_11_ET
+ln -s /data/users/theaven/phytolasma/AT1-AO-11_ET/AT1-AO-11_ET.faa /data/users/theaven/phytolasma/synteny/genespace2/AT1_AO_11_ET/AT1_AO_11_ET.faa
+ln -s /data/users/theaven/phytolasma/AT1-AO-11_ET/AT1-AO-11_ET.gff /data/users/theaven/phytolasma/synteny/genespace2/AT1_AO_11_ET/AT1_AO_11_ET.gff
+
+mkdir -p /data/users/theaven/phytolasma/synteny/genespace2/AT2_62B
+ln -s /data/users/theaven/phytolasma/AT2-62B/AT2-62B.faa /data/users/theaven/phytolasma/synteny/genespace2/AT2_62B/AT2_62B.faa
+ln -s /data/users/theaven/phytolasma/AT2-62B/AT2-62B.gff /data/users/theaven/phytolasma/synteny/genespace2/AT2_62B/AT2_62B.gff
+
+mkdir -p /data/users/theaven/phytolasma/synteny/genespace2/AT2_Cmel17
+ln -s /data/users/theaven/phytolasma/AT2_Cmel17/AT2_Cmel17.faa /data/users/theaven/phytolasma/synteny/genespace2/AT2_Cmel17/.
+ln -s /data/users/theaven/phytolasma/AT2_Cmel17/AT2_Cmel17.gff /data/users/theaven/phytolasma/synteny/genespace2/AT2_Cmel17/.
+
+mkdir -p /data/users/theaven/phytolasma/synteny/genespace2/GCF_000026205
+ln -s /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.faa /data/users/theaven/phytolasma/synteny/genespace2/GCF_000026205/GCF_000026205.faa
+ln -s /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.gff /data/users/theaven/phytolasma/synteny/genespace2/GCF_000026205/GCF_000026205.gff
+
+mkdir /data/users/theaven/phytolasma/synteny/genespace2/peptide
+for file in $(ls /data/users/theaven/phytolasma/synteny/genespace2/*/*.faa); do
+Out=/data/users/theaven/phytolasma/synteny/genespace2/peptide/$(basename $file | sed 's@.faa@.fa@g')
+cat $file | cut -d ' ' -f1 > $Out
+done
+
+mkdir /data/users/theaven/phytolasma/synteny/genespace2/bed
+for file in $(ls /data/users/theaven/phytolasma/synteny/genespace2/*/*.gff); do
+Out=/data/users/theaven/phytolasma/synteny/genespace2/bed/$(basename $file | sed 's@.gff@.bed@g')
+#cat "$file" | awk '$3 == "gene"' | cut -f1,4,5,9 | awk -F'\t' -v OFS='\t' '{ $4 = $4 ".1"; gsub("ID=", "", $4); print }' > $Out
+awk -F'\t' 'BEGIN{OFS="\t"}
+$3=="CDS" {
+    match($9,/locus_tag=([^;]+)/,a);
+    if(a[1]!="")
+        print $1,$4-1,$5,a[1]
+}' "$file" > "$Out"
+done
+
+salloc --cpus-per-task=1 --mem=32G --time=02:00:00 -p bioagri
+module load anaconda3
+module load r/4.5.1-gcc-13.3.0-tcxe6pe
+module load gcc
+module load R
+module load cairo
+module load freetype
+module load harfbuzz
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+conda activate orthofinder25
+orthofinder -h
+
+R
+```
+Install packages in personal library when prompted. The HPC will not play with devtools package - use remotes instead. Conda evironment must be loaded last or scipy is not findable for orthofinder. Needs older python version 3.10.x and older numpy version 1.26 for orthofinder to work properly.
+
+MCScanX is a singularity image, therefore executables running this image must be privided in a directory as expected by genespace.
+```R
+install.packages("BiocManager")
+BiocManager::install(c("Biostrings"))
+install.packages("remotes")
+remotes::install_github("jtlovell/GENESPACE")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(c("Biostrings", "rtracklayer"))
+
+library(Biostrings)
+library(GENESPACE)
+
+gpar <- init_genespace(
+  wd = "/data/users/theaven/phytolasma/synteny/genespace2",
+  path2mcscanx = "/data/users/theaven/"
+)
+
+gpar$nCores <- 1
+gpar$minBlockSize <- 3
+gpar$blkRadius <- 10
+
+gpar <- run_genespace(gsParam = gpar)
+
+# download for plotting in RStudio /data/users/theaven/phytolasma/synteny/genespace/results/gsParams.rda
+
+plot_riparian(
+    gsParam=gpar,
+    genomeIDs=c("AT1_13_ET","AT2_62B"),
+    useOrder=TRUE
+)
+
+png(
+  "riparian_highres.png",
+  width=6000,
+  height=4000,
+  res=300
+)
+
+plot_riparian(
+    gsParam=gpar,
+    genomeIDs=c("AT1_13_ET","AT2_62B", "AT1_AO_11_ET", "AT2_Cmel17", "GCF_000026205"),
+  minChrLen2plot = 0
+)
+
+pdf("/data/users/theaven/phytolasma/synteny/genespace2/riparian/riparian_GCF_000026205.pdf", width = 10, height = 6)
+
+plot_riparian(
+  gsParam = gpar,
+  refGenome = "GCF_000026205",
+  genomeIDs = c("AT1_13_ET","AT2_62B","AT1_AO_11_ET","AT2_Cmel17","GCF_000026205"),
+  forceRecalcBlocks = FALSE,
+  useOrder = FALSE,
+  useRegions = FALSE,
+  minChrLen2plot = 0,
+  braidAlpha = .75,
+  chrFill = "lightgrey"
+)
+
+dev.off()
+
+pdf("/data/users/theaven/phytolasma/synteny/genespace2/riparian/riparian_AT1_AO_11_ET.pdf", width = 10, height = 6)
+
+plot_riparian(
+  gsParam = gpar,
+  refGenome = "AT1_AO_11_ET",
+  genomeIDs = c("AT1_13_ET","AT2_62B","AT1_AO_11_ET","AT2_Cmel17","GCF_000026205"),
+  forceRecalcBlocks = FALSE,
+  useOrder = FALSE,
+  useRegions = FALSE,
+  minChrLen2plot = 1, 
+  braidAlpha = .75,
+  chrFill = "lightgrey"
+)
+
+dev.off()
+
+pdf("/data/users/theaven/phytolasma/synteny/genespace2/riparian/riparian_AT2_62B.pdf", width = 10, height = 6)
+
+plot_riparian(
+  gsParam = gpar,
+  refGenome = "AT2_62B",
+  genomeIDs = c("AT1_13_ET","AT2_62B","AT1_AO_11_ET","AT2_Cmel17","GCF_000026205"),
+  forceRecalcBlocks = FALSE,
+  useOrder = FALSE,
+  useRegions = FALSE,
+  minChrLen2plot = 0, 
+  braidAlpha = .75,
+  chrFill = "lightgrey"
+)
+
+dev.off()
+
+pdf("/data/users/theaven/phytolasma/synteny/genespace2/riparian/riparian_AT1_13_ET.pdf", width = 10, height = 6)
+
+plot_riparian(
+  gsParam = gpar,
+  refGenome = "AT1_13_ET",
+  genomeIDs = c("AT1_13_ET","AT2_62B","AT1_AO_11_ET","AT2_Cmel17","GCF_000026205"),
+  forceRecalcBlocks = FALSE,
+  useOrder = FALSE,
+  useRegions = FALSE,
+  minChrLen2plot = 0, 
+  braidAlpha = .75,
+  chrFill = "lightgrey"
+)
+
+dev.off()
+
+pdf("/data/users/theaven/phytolasma/synteny/genespace2/riparian/riparian_AT2_Cmel17.pdf", width = 10, height = 6)
+
+plot_riparian(
+  gsParam = gpar,
+  refGenome = "AT2_Cmel17",
+  genomeIDs = c("AT1_13_ET","AT2_62B","AT1_AO_11_ET","AT2_Cmel17","GCF_000026205"),
+  forceRecalcBlocks = FALSE,
+  useOrder = FALSE,
+  useRegions = FALSE,
+  minChrLen2plot = 0, 
+  braidAlpha = .75,
+  chrFill = "lightgrey"
+)
+
+dev.off()
+```
+```bash
+
+/data/users/theaven/phytolasma/synteny/genespace/orthofinder/Results_Jul20/
+
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python  ~/git_repos/Scripts/unibz/orthofinder_presence.py \
+ --orthogroups /data/users/theaven/phytolasma/synteny/genespace/orthofinder/Results_Jul20/Orthogroups/Orthogroups.tsv \
+ --out /data/users/theaven/phytolasma/synteny/genespace/orthofinder/Results_Jul20/Orthogroups/orthogroup_presence.tsv
+
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python  ~/git_repos/Scripts/unibz/orthogroup_upset.py \
+    --input /data/users/theaven/phytolasma/synteny/genespace/orthofinder/Results_Jul20/Orthogroups/orthogroup_presence.tsv \
+    --output /data/users/theaven/phytolasma/synteny/genespace/orthofinder/Results_Jul20/Orthogroups/phytoplasma_orthogroups_upset.png
+```
+
+```bash
+salloc --cpus-per-task=8 --mem=32G --time=02:00:00 -p bioagri
+module load blasta-plus/2.14.1
+
+mkdir -p /data/users/theaven/phytolasma/synteny/mcscanx/DB
+for file in /data/users/theaven/phytolasma/synteny/genespace/peptide/*.fa; do 
+ID=$(basename "$file"  .fa)
+makeblastdb -in "$file" -out /data/users/theaven/phytolasma/synteny/mcscanx/DB/"$ID" -dbtype prot
+done
+
+mkdir /data/users/theaven/phytolasma/synteny/mcscanx/intermediateData
+for file in /data/users/theaven/phytolasma/synteny/genespace/peptide/*.fa; do 
+	ID=$(basename "$file"  .fa)
+	for db in /data/users/theaven/phytolasma/synteny/mcscanx/DB/*.pdb; do
+		ID2=$(basename "$db"  .pdb)
+		blastp -db $(echo "$db" | sed 's@.pdb@@g') -query "$file" -num_threads 8 -evalue 1e-10 -num_alignments 5 -outfmt 6 -out /data/users/theaven/phytolasma/synteny/mcscanx/intermediateData/"$ID"_v_"$ID2".blast
+	done
+done
+
+for file in /data/users/theaven/phytolasma/synteny/genespace/bed/*.bed; do
+	awk 'BEGIN{OFS="\t"} {print $1,$4,$2,$3}' "$file" > /data/users/theaven/phytolasma/synteny/mcscanx/intermediateData/$(basename "$file" .bed).gff
+done
+
+mkdir /data/users/theaven/phytolasma/synteny/mcscanx/master
+cat /data/users/theaven/phytolasma/synteny/mcscanx/intermediateData/*.blast > /data/users/theaven/phytolasma/synteny/mcscanx/master/master.blast
+
+cat /data/users/theaven/phytolasma/synteny/mcscanx/intermediateData/*.gff > /data/users/theaven/phytolasma/synteny/mcscanx/master/master.gff
+sed 's/gnl|Prokka|//' master.gff >  temp.gff && mv temp.gff /data/users/theaven/phytolasma/synteny/mcscanx/master/master.gff
+
+
+< /data/users/theaven/phytolasma/synteny/mcscanx/master/master.blast tr ' ' '\t' > temp.blast && mv temp.blast /data/users/theaven/phytolasma/synteny/mcscanx/master/master.blast
+< /data/users/theaven/phytolasma/synteny/mcscanx/master/master.gff tr ' ' '\t' > temp.gff && mv temp.gff /data/users/theaven/phytolasma/synteny/mcscanx/master/master.gff
+
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+apptainer exec \
+  --bind /data:/data \
+  --bind /home/clusterusers/theaven:/home/clusterusers/theaven \
+  /data/users/theaven/mcscanx_1.0.0--h9948957_0 \
+  MCScanX /data/users/theaven/phytolasma/synteny/mcscanx/master/master
+
+#Generating BLAST list
+#9428 matches imported (8695 discarded)
+#64 pairwise comparisons
+#87 alignments generated
+#Pairwise collinear blocks written to /data/users/theaven/phytolasma/synteny/mcscanx/master/master.collinearity [0.131 seconds elapsed]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```bash
+conda activate fastp
+cd /data/users/theaven/NanoCLUST
+/data/users/theaven/nextflow run main.nf -profile singularity --reads 'sample.fastq' --db "db/16S_ribosomal_RNA" --tax "db/taxdb/"
+```
+
+
+
+```bash
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+echo AT1_AO_11_ET_fasta_3 > temp.txt
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/NBI/seq_get.py --id_file temp.txt --input AT1-AO-11_ET.fasta --output AT1_AO_11_ET_fasta_3.fasta
+```
+
+
+Erika acquisition expt. samples from Lapo
+```bash
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+module load anaconda3
+
+cd /data/users/theaven/phytolasma/Erika
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/unibz/split_multifasta.py Ca_mali.fasta Ca_mali_split
+cd Ca_mali_split
+
+conda activate emboss
+
+for genome in *.fasta; do 
+  Out=$(echo $genome | sed 's@.fasta@@g')_rpl22.txt 
+  primersearch \
+  -seqall "$genome" \
+  -infile /data/users/theaven/phytolasma/pop/rpl22_primers.txt \
+  -mismatchpercent 10 \
+  -outfile "$Out" 
+done
+
+for genome in *.fasta; do 
+  Out=$(echo $genome | sed 's@.fasta@@g')_1310.txt 
+  primersearch \
+  -seqall "$genome" \
+  -infile /data/users/theaven/phytolasma/pop/AP13-10_primers.txt \
+  -mismatchpercent 10 \
+  -outfile "$Out" 
+done
+
+for genome in *.fasta; do 
+  Out=$(echo $genome | sed 's@.fasta@@g')_54.txt 
+  primersearch \
+  -seqall "$genome" \
+  -infile /data/users/theaven/phytolasma/pop/AP5-4_primers.txt \
+  -mismatchpercent 10 \
+  -outfile "$Out" 
+done
+
+for genome in *.fasta; do 
+  Out=$(echo $genome | sed 's@.fasta@@g')_810.txt 
+  primersearch \
+  -seqall "$genome" \
+  -infile /data/users/theaven/phytolasma/pop/AP8-10_primers.txt \
+  -mismatchpercent 10 \
+  -outfile "$Out" 
+done
+
+####
+
+conda activate seqkit
+
+mkdir /data/users/theaven/phytolasma/Erika/Ca_mali_split/rpl22
+for genome in *.fasta; do 
+  Out=$(echo $genome | sed 's@.fasta@@g')_rpl22_amplicon.fasta  
+seqkit amplicon \
+      -F TGCTGAAGCTAATTTGGC \
+      -R CCCATGAATATTAACCTCCT \
+      -m 1 \
+      "$genome" \
+      > /data/users/theaven/phytolasma/Erika/Ca_mali_split/rpl22/"$Out"
+done
+
+mkdir /data/users/theaven/phytolasma/Erika/Ca_mali_split/1310
+for genome in *.fasta; do 
+  Out=$(echo $genome | sed 's@.fasta@@g')_1310_amplicon.fasta 
+seqkit amplicon \
+      -F CTACAGATTTCACACATTGG \
+      -R TTTTCACAACGTATTCCGCC \
+      -m 1 \
+      "$genome" \
+      > /data/users/theaven/phytolasma/Erika/Ca_mali_split/1310/"$Out"
+done
+
+mkdir /data/users/theaven/phytolasma/Erika/Ca_mali_split/54
+for genome in *.fasta; do 
+  Out=$(echo $genome | sed 's@.fasta@@g')_54_amplicon.fasta 
+seqkit amplicon \
+      -F TCTTTTAATCTTCAACCATGGC \
+      -R CCAATGTGTGAAATCTGTAG \
+      -m 1 \
+      "$genome" \
+      > /data/users/theaven/phytolasma/Erika/Ca_mali_split/54/"$Out"
+done
+
+mkdir /data/users/theaven/phytolasma/Erika/Ca_mali_split/810
+for genome in *.fasta; do 
+  Out=$(echo $genome | sed 's@.fasta@@g')_810_amplicon.fasta 
+seqkit amplicon \
+      -F CAAACAACAATTTTAAAACC \
+      -R TTTTCACAACGTATTCCGCC \
+      -m 1 \
+      "$genome" \
+      > /data/users/theaven/phytolasma/Erika/Ca_mali_split/810/"$Out"
+done
+```
+
+```bash
+for file in $(ls EN00011601_hdd1/Cmel*_2.fastq.gz); do
+  ID=$(echo $file | cut -d '/' -f2 | sed 's@_2.fastq.gz@@g')
+  echo $ID
+  mkdir "$ID"
+  mv EN00011601_hdd1/"$ID"_1.fastq.gz $ID/.
+  mv EN00011601_hdd1/"$ID"_2.fastq.gz $ID/.
+done
+```
+```bash
+for ReadDir in $(ls -d /data/users/theaven/phytolasma/Erika/raw_data/*); do
+  Task=FastQC
+  ID=$(echo "$ReadDir" | cut -d '/' -f8 | sed 's@/@_@g')
+  Reads=("$ReadDir"/*.fastq.gz)
+  OutDir="$ReadDir"/"$Task"
+  ExpectedOutput="$OutDir"/$(basename "${Reads[0]}" | sed 's@.fastq.gz@@g')_fastqc.html
+  Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+
+  while [ "$Jobs" -gt 9 ]; do
+    sleep 5s
+    printf "."
+    Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+  done
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_fastqc.sh "$OutDir" "${Reads[@]}")
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done
+
+for ReadDir in $(ls -d /data/users/theaven/phytolasma/Erika/raw_data/*); do
+  Task=TrimGalore
+  ID=$(echo "$ReadDir" | cut -d '/' -f8 | sed 's@/@_@g')
+  Reads=("$ReadDir"/*.fastq.gz)
+  OutDir="$(echo "$ReadDir" | sed 's@raw_data@qc_data@g')/"$Task""
+  OutFile="$ID"_trimmed
+  Quality=20
+  Length=50
+  ExpectedOutput=${OutDir}/${OutFile}_2_report.txt
+  Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+
+  while [ "$Jobs" -gt 9 ]; do
+    sleep 5s
+    printf "."
+    Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+  done
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_trim_galore.sh --delete-input "$OutDir" "$OutFile" "$Quality" "$Length" "${Reads[@]}")
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done
+
+for ReadDir in $(ls -d /data/users/theaven/phytolasma/Erika/qc_data/*); do
+  Task=FastQC
+  ID=$(echo "$ReadDir" | cut -d '/' -f8 | sed 's@/@_@g')
+  Reads=("$ReadDir"/*.fastq.gz)
+  OutDir="$ReadDir"/"$Task"
+  ExpectedOutput="$OutDir"/$(basename "${Reads[0]}" | sed 's@.fastq.gz@@g')_fastqc.html
+  Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+
+  while [ "$Jobs" -gt 9 ]; do
+    sleep 5s
+    printf "."
+    Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+  done
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_fastqc.sh "$OutDir" "${Reads[@]}")
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done
+
+
+```

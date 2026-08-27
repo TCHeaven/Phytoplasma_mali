@@ -63,6 +63,10 @@ for ReadDir in $(ls -d /data/users/theaven/C_melanoneura_microbiome/raw_data/*);
 		echo "For $ID found: $ExpectedOutput" 
 	fi
 done
+
+conda activate seqkit-2.10
+seqkit stats /data/users/theaven/C_melanoneura_microbiome/raw_data/*/*fastq.gz
+
 ```
 ### Cutadapt  <a name="5"></a>
 Primers were removed from the reads where present using Cutadapt. Primers used by Macrogen for the 16S V3-V4 region are given at https://www.macrogen-europe.com/service/metagenome-sequencing
@@ -108,6 +112,7 @@ Reads were filtered with Fastp, reads/pairs shorter than 100bp or with >40% of b
 screen -r melanoneura
 for ReadDir in $(ls -d /data/users/theaven/C_melanoneura_microbiome/qc_data/*/CutAdapt); do
 	Task=Fastp
+
 	ID=$(echo "$ReadDir" | cut -d '/' -f7 | sed 's@/@_@g')
     Reads=("$ReadDir"/*.fastq.gz)
 	OutDir="$(dirname "$ReadDir")/"$Task""
@@ -849,6 +854,81 @@ apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barp
   --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
   --o-visualization /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/taxa-barplot-no-organelle.qzv
 
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime feature-table summarize \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast.qza \
+  --o-visualization asv-summary.qzv
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast.qza \
+  --output-path exported_table
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i exported_table/feature-table.biom \
+  -o feature-table.tsv \
+  --to-tsv
+```
+```python
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("feature-table.tsv", sep="\t", skiprows=1, index_col=0)
+
+# ASVs per sample (richness)
+asvs_per_sample = (df > 0).sum(axis=0)
+
+mean = asvs_per_sample.mean()
+median = asvs_per_sample.median()
+mode = stats.mode(asvs_per_sample, keepdims=True).mode[0]
+minimum = asvs_per_sample.min()
+maximum = asvs_per_sample.max()
+
+print("Mean ASVs per sample:", mean)
+print("Median ASVs per sample:", median)
+print("Mode ASVs per sample:", mode)
+print("Min ASVs per sample:", minimum)
+print("Max ASVs per sample:", maximum)
+```
+Total: 751
+Mean: 28.16
+Median: 22.5
+Mode: 7
+Min ASVs per sample: 5
+Max ASVs per sample: 139
+
+Collapse to genus/family level:
+```bash
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa collapse \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported.qza \
+  --p-level 6 \
+  --o-collapsed-table genus-table.qza
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path genus-table.qza \
+  --output-path genus_export
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i genus_export/feature-table.biom \
+  -o genus-table.tsv \
+  --to-tsv
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa collapse \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported.qza \
+  --p-level 5 \
+  --o-collapsed-table family-table.qza
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path family-table.qza \
+  --output-path family_export
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i family_export/feature-table.biom \
+  -o family-table.tsv \
+  --to-tsv
+```
+
+```bash
 #Build phylogeny
 screen -S melanoneura
 srun -p bioagri  -c 64 --mem 64G --pty bash
@@ -1011,7 +1091,9 @@ install.packages("BiocManager")
 install.packages("ggrepel")
 BiocManager::install("phyloseq")
 BiocManager::install("microbiome")
-
+install.packages("ComplexUpset")
+install.packages("pheatmap")
+library(ComplexUpset)
 library(phyloseq)
 library(tidyverse)
 library(readr)
@@ -1020,6 +1102,7 @@ library(ggplot2)
 library(tidyr)
 library(RColorBrewer)
 library(ggrepel)
+library(pheatmap)
 
 setwd("C:/Users/THeaven/OneDrive - Scientific Network South Tyrol/R")
 set.seed(1)
@@ -1037,11 +1120,11 @@ meta <- read_tsv(
 )
 meta <- column_to_rownames(meta, var = "#SampleID")
 
-tax <- read.table("down_20260427/exported-taxonomy/taxonomy.tsv", 
+tax1 <- read.table("down_20260427/exported-taxonomy/taxonomy.tsv", 
                   header = TRUE, 
                   sep = "\t", 
                   row.names = 1)
-tax_split <- tax %>%
+tax_split <- tax1 %>%
   separate(Taxon, 
            into = c("Kingdom","Phylum","Class","Order","Family","Genus","Species"), 
            sep = ";", 
@@ -1086,8 +1169,6 @@ fixed_taxa <- names(fixed_cols)
 
 auto_taxa <- setdiff(all_taxa, fixed_taxa)
 auto_taxa <- setdiff(auto_taxa, "Other")
-
-library(RColorBrewer)
 
 auto_cols <- setNames(
   colorRampPalette(brewer.pal(8, "Set3"))(length(auto_taxa)),
@@ -1171,6 +1252,130 @@ ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
   facet_wrap(~ country) +
   theme_classic()
 
+ps_simple <- phyloseq::phyloseq(
+  phyloseq::otu_table(ps_f),
+  phyloseq::sample_data(ps_f)
+)
+ps_pa <- transform_sample_counts(ps_simple, function(x) as.numeric(x > 0))
+jaccard <- phyloseq::distance(ps_pa, method = "jaccard")
+ord <- ordinate(ps_f, method = "PCoA", distance = jaccard)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  facet_wrap(~ country) +
+  theme_classic()
+
+ps_f_genus <- tax_glom(ps_f, taxrank = "Genus")
+mat <- as(otu_table(ps_f_genus), "matrix")
+
+if (taxa_are_rows(ps_f_genus)) {
+  mat <- t(mat)
+}
+
+pa_mat <- (mat > 0) * 1
+
+meta_mat <- meta_f[match(rownames(mat), rownames(meta_f)), , drop = FALSE]
+
+group <- meta_mat$host
+group_levels <- unique(group)
+
+pvals <- apply(pa_mat, 2, function(x) {
+  tab <- table(x, group)
+
+  if (length(unique(x)) < 2) return(NA)
+
+  fisher.test(tab)$p.value
+})
+
+p_adj <- p.adjust(pvals, method = "BH")
+
+sig_taxa <- names(p_adj)[p_adj < 0.05 & !is.na(p_adj)]
+
+pa_sig <- pa_mat[, sig_taxa, drop = FALSE]
+
+prev_list <- list()
+count_list <- list()
+
+for (g in group_levels) {
+  sub <- pa_sig[group == g, , drop = FALSE]
+
+  prev_list[[g]] <- colMeans(sub)
+  count_list[[g]] <- colSums(sub)
+}
+
+tax <- as.data.frame(tax_table(ps_f_genus))
+
+tax_labels <- tax$Genus
+names(tax_labels) <- rownames(tax)
+
+df2 <- data.frame(
+  Taxon = colnames(pa_sig),
+  Label = tax_labels[colnames(pa_sig)]
+)
+
+for (g in group_levels) {
+  df2[[paste0(g, "_prev")]] <- prev_list[[g]]
+  df2[[paste0(g, "_n")]]    <- count_list[[g]]
+}
+
+df2$diff <- df2[[paste0(group_levels[1], "_prev")]] -
+            df2[[paste0(group_levels[2], "_prev")]]
+
+df2 <- df2[order(df2$diff, decreasing = TRUE), ]
+tax_levels <- df2$Label
+
+df2_prev_long <- pivot_longer(
+  df2,
+  cols = ends_with("_prev"),
+  names_to = "Group",
+  values_to = "Prevalence"
+)
+
+df2_count_long <- pivot_longer(
+  df2,
+  cols = ends_with("_n"),
+  names_to = "Group_n",
+  values_to = "Count"
+)
+
+df2_prev_long$Group <- gsub("_prev", "", df2_prev_long$Group)
+df2_count_long$Group_n <- gsub("_n", "", df2_count_long$Group_n)
+
+df2_long <- df2_prev_long
+df2_long$Count <- df2_count_long$Count
+
+df2_long$Label[is.na(df2_long$Label)] <- df2_long$Taxon
+
+df2_long$Label <- factor(df2_long$Label, levels = tax_levels)
+
+df2_long$Count_label <- ifelse(df2_long$Count > 0, df2_long$Count, "")
+
+ggplot(df2_long, aes(
+  x = Group,
+  y = Label,
+  size = Prevalence,
+  color = Group
+)) +
+  geom_point(alpha = 0.85) +
+  
+  geom_text(aes(label = Count_label),
+            size = 2,
+            color = "black") +
+  
+  scale_size(range = c(2, 10)) +
+  theme_classic(base_size = 14) +
+  labs(
+    x = NULL,
+    y = "Taxonomy (Genus)",
+    size = "Prevalence",
+    color = "Group",
+    title = "Significant taxa (FDR < 0.05)\nBubble size = prevalence, numbers = sample counts"
+  )
 ######################################################################################
 #Field only, Females vs males but keep the country of origin and host
 df_sub <- subset(df, Field_Lab2 == "field")
@@ -1223,13 +1428,142 @@ pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
 
 ggplot(pcoa_df, aes(PC1, PC2, color = sex)) +
   geom_point(size = 3) +
-  facet_grid(country ~ host, scales = "fixed") +
+  facet_grid(host ~ country, scales = "fixed") +
   coord_fixed() +
   theme_classic() +
   theme(
     panel.spacing = unit(1, "lines")
   )
-######################################################################################
+
+ps_simple <- phyloseq::phyloseq(
+  phyloseq::otu_table(ps_f),
+  phyloseq::sample_data(ps_f)
+)
+ps_pa <- transform_sample_counts(ps_simple, function(x) as.numeric(x > 0))
+jaccard <- phyloseq::distance(ps_pa, method = "jaccard")
+ord <- ordinate(ps_f, method = "PCoA", distance = jaccard)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = sex)) +
+  geom_point(size = 3) +
+  facet_grid(host ~ country, scales = "fixed") +
+  coord_fixed() +
+  theme_classic() +
+  theme(
+    panel.spacing = unit(1, "lines")
+  )
+
+ps_f_genus <- tax_glom(ps_f, taxrank = "Genus")
+mat <- as(otu_table(ps_f_genus), "matrix")
+
+if (taxa_are_rows(ps_f_genus)) {
+  mat <- t(mat)
+}
+
+pa_mat <- (mat > 0) * 1
+
+meta_mat <- meta_f[match(rownames(mat), rownames(meta_f)), , drop = FALSE]
+
+group <- meta_mat$sex
+group_levels <- unique(group)
+
+pvals <- apply(pa_mat, 2, function(x) {
+  tab <- table(x, group)
+
+  if (length(unique(x)) < 2) return(NA)
+
+  fisher.test(tab)$p.value
+})
+
+p_adj <- p.adjust(pvals, method = "BH")
+
+sig_taxa <- names(p_adj)[p_adj < 0.05 & !is.na(p_adj)]
+
+pa_sig <- pa_mat[, sig_taxa, drop = FALSE]
+
+prev_list <- list()
+count_list <- list()
+
+for (g in group_levels) {
+  sub <- pa_sig[group == g, , drop = FALSE]
+
+  prev_list[[g]] <- colMeans(sub)
+  count_list[[g]] <- colSums(sub)
+}
+
+tax <- as.data.frame(tax_table(ps_f_genus))
+
+tax_labels <- tax$Genus
+names(tax_labels) <- rownames(tax)
+
+df2 <- data.frame(
+  Taxon = colnames(pa_sig),
+  Label = tax_labels[colnames(pa_sig)]
+)
+
+for (g in group_levels) {
+  df2[[paste0(g, "_prev")]] <- prev_list[[g]]
+  df2[[paste0(g, "_n")]]    <- count_list[[g]]
+}
+
+df2$diff <- df2[[paste0(group_levels[1], "_prev")]] -
+            df2[[paste0(group_levels[2], "_prev")]]
+
+df2 <- df2[order(df2$diff, decreasing = TRUE), ]
+tax_levels <- df2$Label
+
+df2_prev_long <- pivot_longer(
+  df2,
+  cols = ends_with("_prev"),
+  names_to = "Group",
+  values_to = "Prevalence"
+)
+
+df2_count_long <- pivot_longer(
+  df2,
+  cols = ends_with("_n"),
+  names_to = "Group_n",
+  values_to = "Count"
+)
+
+df2_prev_long$Group <- gsub("_prev", "", df2_prev_long$Group)
+df2_count_long$Group_n <- gsub("_n", "", df2_count_long$Group_n)
+
+df2_long <- df2_prev_long
+df2_long$Count <- df2_count_long$Count
+
+df2_long$Label[is.na(df2_long$Label)] <- df2_long$Taxon
+
+df2_long$Label <- factor(df2_long$Label, levels = tax_levels)
+
+df2_long$Count_label <- ifelse(df2_long$Count > 0, df2_long$Count, "")
+
+ggplot(df2_long, aes(
+  x = Group,
+  y = Label,
+  size = Prevalence,
+  color = Group
+)) +
+  geom_point(alpha = 0.85) +
+  
+  geom_text(aes(label = Count_label),
+            size = 2,
+            color = "black") +
+  
+  scale_size(range = c(2, 10)) +
+  theme_classic(base_size = 14) +
+  labs(
+    x = NULL,
+    y = "Taxonomy (Genus)",
+    size = "Prevalence",
+    color = "Group",
+    title = "Significant taxa (FDR < 0.05)\nBubble size = prevalence, numbers = sample counts"
+  )
+################################################################################
 #Lab vs field for each locality
 
 df_sub <- subset(df, host == "apple" & Region %in% c("NW", "NE"))
@@ -1249,6 +1583,43 @@ df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
 df_sub <- df_sub[order(df_sub$Region, df_sub$Field_Lab2, df_sub$Population, df_sub$Sample), ]
 df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
 
+#####
+taxa_abund <- tapply(df_sub$Abundance, df_sub$Genus, sum)
+
+top10 <- names(sort(taxa_abund, decreasing = TRUE))[1:10]
+
+keep_extra <- c("g__Candidatus_Sulcia", "g__Candidatus_Carsonella")
+
+fixed_cols <- c(
+  "g__Candidatus_Sulcia" = "#FF00FF",
+  "g__Candidatus_Carsonella" = "#000000"
+)
+
+keep_taxa <- unique(c(top10, keep_extra))
+
+df_sub$Genus <- as.character(df_sub$Genus)
+
+df_sub$Genus[!df_sub$Genus %in% keep_taxa] <- "Other"
+
+all_taxa <- unique(df_sub$Genus)
+
+fixed_taxa <- names(fixed_cols)
+
+auto_taxa <- setdiff(all_taxa, fixed_taxa)
+auto_taxa <- setdiff(auto_taxa, "Other")
+
+auto_cols <- setNames(c(
+  "aquamarine3",  "yellow2", "red3", "palegreen2",
+  "deeppink4",  "skyblue3",
+  "sienna2", "maroon3", "wheat3", "royalblue3"
+), auto_taxa)
+
+other_col <- c("Other" = "grey80")
+
+final_cols <- c(auto_cols, fixed_cols, other_col)
+
+df_sub$Genus <- factor(df_sub$Genus, levels = names(final_cols))
+
 ggplot(df_sub, aes(x = Label, y = Abundance, fill = Genus)) +
   geom_bar(stat = "identity") +
   scale_fill_manual(values = final_cols) +
@@ -1256,6 +1627,8 @@ ggplot(df_sub, aes(x = Label, y = Abundance, fill = Genus)) +
   theme(
     axis.text.x = element_text(angle = 90, hjust = 1)
   )
+
+####
 
 meta_f <- meta[meta$host == "apple" & meta$Region %in% c("NW", "NE"), ]
 ps_f <- prune_samples(rownames(meta_f), ps)
@@ -1272,6 +1645,8 @@ ggplot(alpha_df, aes(x = Field_Lab2, y = Shannon, fill = Field_Lab2)) +
   theme_classic() +
   guides(color = "none")
 
+####
+
 bray <- phyloseq::distance(ps_f, method = "bray")
 ord <- ordinate(ps_f, method = "PCoA", distance = bray)
 pcoa_df <- as.data.frame(ord$vectors[, 1:2])
@@ -1284,6 +1659,269 @@ ggplot(pcoa_df, aes(PC1, PC2, color = Field_Lab2)) +
   geom_point(size = 3) +
   facet_wrap(~ Region) +
   theme_classic()
+
+####
+
+ps_simple <- phyloseq::phyloseq(
+  phyloseq::otu_table(ps_f),
+  phyloseq::sample_data(ps_f)
+)
+ps_pa <- transform_sample_counts(ps_simple, function(x) as.numeric(x > 0))
+jaccard <- phyloseq::distance(ps_pa, method = "jaccard")
+ord <- ordinate(ps_f, method = "PCoA", distance = jaccard)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = Field_Lab2)) +
+  geom_point(size = 3) +
+  facet_wrap(~ Region) +
+  theme_classic()
+
+####
+
+mat <- as(otu_table(ps_genus), "matrix")
+ 
+if (taxa_are_rows(ps_genus)) {
+     mat <- t(mat)
+ }
+
+meta_mat <- meta[rownames(mat), ]
+group <- meta_mat$Field_Lab2
+
+pa_mat <- (mat > 0) * 1
+
+#statistical test per ASV (Fisher’s exact test)
+pvals <- apply(pa_mat, 2, function(x) {
+  tab <- table(x, group)
+  if (nrow(tab) < 2 || ncol(tab) < 2) return(NA)
+  fisher.test(tab)$p.value
+})
+p_adj <- p.adjust(pvals, method = "BH")
+
+sig_asvs <- names(p_adj)[which(p_adj < 0.05)]
+
+pa_sig <- pa_mat[, sig_asvs, drop = FALSE]
+pa_df <- as.data.frame(pa_sig)
+pa_df$Group <- group
+pa_df$Group <- as.factor(pa_df$Group)
+
+#prev <- colSums(pa_df) / nrow(pa_df)
+#pa_df <- pa_df[, prev > 0.1]   # present in >10% samples
+
+upset(
+  pa_df,
+  intersect = colnames(pa_df)[colnames(pa_df) != "Group"],
+  name = "ASV intersections",
+  sort_intersections_by = "degree",
+  base_annotations = list(
+    'Intersection size' = intersection_size(aes(fill = Group))
+  )
+)
+
+upset(
+  pa_df,
+  intersect = colnames(pa_df)[colnames(pa_df) != "Group"],
+  name = "ASV intersections",
+  base_annotations = list(
+    'Intersection size' = intersection_size(aes(fill = Group))
+  )
+)
+
+####
+
+# ----------------------------
+# 1. OTU matrix → presence/absence
+# ----------------------------
+ps_f_genus <- tax_glom(ps_f, taxrank = "Genus")
+mat <- as(otu_table(ps_f_genus), "matrix")
+
+if (taxa_are_rows(ps_f_genus)) {
+  mat <- t(mat)
+}
+
+pa_mat <- (mat > 0) * 1
+
+
+# ----------------------------
+# 2. Metadata alignment
+# ----------------------------
+meta_mat <- meta_f[match(rownames(mat), rownames(meta_f)), , drop = FALSE]
+
+group <- meta_mat$Field_Lab2
+group_levels <- unique(group)
+
+
+# ----------------------------
+# 3. Fisher’s exact test per taxon
+# ----------------------------
+pvals <- apply(pa_mat, 2, function(x) {
+  tab <- table(x, group)
+
+  if (length(unique(x)) < 2) return(NA)
+
+  fisher.test(tab)$p.value
+})
+
+p_adj <- p.adjust(pvals, method = "BH")
+
+
+# ----------------------------
+# 4. Keep only significant taxa
+# ----------------------------
+sig_taxa <- names(p_adj)[p_adj < 0.05 & !is.na(p_adj)]
+
+pa_sig <- pa_mat[, sig_taxa, drop = FALSE]
+
+
+# ----------------------------
+# 5. Prevalence + raw counts per group
+# ----------------------------
+prev_list <- list()
+count_list <- list()
+
+for (g in group_levels) {
+  sub <- pa_sig[group == g, , drop = FALSE]
+
+  prev_list[[g]] <- colMeans(sub)
+  count_list[[g]] <- colSums(sub)
+}
+
+
+# ----------------------------
+# 6. Taxonomy labels
+# ----------------------------
+tax <- as.data.frame(tax_table(ps_f_genus))
+
+tax_labels <- tax$Genus
+names(tax_labels) <- rownames(tax)
+
+
+# ----------------------------
+# 7. Build summary table (df2)
+# ----------------------------
+df2 <- data.frame(
+  Taxon = colnames(pa_sig),
+  Label = tax_labels[colnames(pa_sig)]
+)
+
+for (g in group_levels) {
+  df2[[paste0(g, "_prev")]] <- prev_list[[g]]
+  df2[[paste0(g, "_n")]]    <- count_list[[g]]
+}
+
+
+# ----------------------------
+# 8. Effect size
+# ----------------------------
+df2$diff <- df2[[paste0(group_levels[1], "_prev")]] -
+            df2[[paste0(group_levels[2], "_prev")]]
+
+
+# ----------------------------
+# 9. Order taxa by effect size
+# ----------------------------
+df2 <- df2[order(df2$diff, decreasing = TRUE), ]
+tax_levels <- df2$Label
+
+# ----------------------------
+# 10. Long format
+# ----------------------------
+library(tidyr)
+
+df2_prev_long <- pivot_longer(
+  df2,
+  cols = ends_with("_prev"),
+  names_to = "Group",
+  values_to = "Prevalence"
+)
+
+df2_count_long <- pivot_longer(
+  df2,
+  cols = ends_with("_n"),
+  names_to = "Group_n",
+  values_to = "Count"
+)
+
+df2_prev_long$Group <- gsub("_prev", "", df2_prev_long$Group)
+df2_count_long$Group_n <- gsub("_n", "", df2_count_long$Group_n)
+
+df2_long <- df2_prev_long
+df2_long$Count <- df2_count_long$Count
+
+
+# ----------------------------
+# 11. Clean labels
+# ----------------------------
+df2_long$Label[is.na(df2_long$Label)] <- df2_long$Taxon
+
+
+# ----------------------------
+# 12. Enforce ordering
+# ----------------------------
+df2_long$Label <- factor(df2_long$Label, levels = tax_levels)
+
+
+# ----------------------------
+# 13. Hide zero counts
+# ----------------------------
+df2_long$Count_label <- ifelse(df2_long$Count > 0, df2_long$Count, "")
+
+
+# ----------------------------
+# 14. Plot
+# ----------------------------
+library(ggplot2)
+
+ggplot(df2_long, aes(
+  x = Group,
+  y = Label,
+  size = Prevalence,
+  color = Group
+)) +
+  geom_point(alpha = 0.85) +
+  
+  geom_text(aes(label = Count_label),
+            size = 2,
+            color = "black") +
+  
+  scale_size(range = c(2, 10)) +
+  theme_classic(base_size = 14) +
+  labs(
+    x = NULL,
+    y = "Taxonomy (Genus)",
+    size = "Prevalence",
+    color = "Group",
+    title = "Significant taxa (FDR < 0.05)\nBubble size = prevalence, numbers = sample counts"
+  )
+
+####
+mat_asv <- mat
+colnames(mat_asv) <- tax_labels[colnames(mat_asv)]
+mat_genus_rel <- sweep(mat_asv, 1, rowSums(mat_asv), "/")
+mat_genus_rel_log <- log10(mat_genus_rel + 1)
+pheatmap(
+  mat_genus_rel_log,
+  color = colorRampPalette(c("white", "red"))(100),
+  cluster_rows = TRUE,
+  cluster_cols = TRUE
+)
+
+breaks <- seq(0, max(mat_genus_rel, na.rm = TRUE), length.out = 101)
+col_fun <- colorRampPalette(c("white", "red"))(100)
+colors <- c("white", col_fun)
+breaks <- c(0, breaks)
+
+pheatmap(
+  mat_genus_rel,
+  color = colors,
+  breaks = breaks,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE
+)
+
 
 ######################################################################################
 #Nymphs vs adults
@@ -1341,6 +1979,131 @@ ggplot(pcoa_df, aes(PC1, PC2, color = life_stage)) +
   geom_point(size = 3) +
   facet_wrap(~ Region) +
   theme_classic()
+
+ps_simple <- phyloseq::phyloseq(
+  phyloseq::otu_table(ps_f),
+  phyloseq::sample_data(ps_f)
+)
+ps_pa <- transform_sample_counts(ps_simple, function(x) as.numeric(x > 0))
+jaccard <- phyloseq::distance(ps_pa, method = "jaccard")
+ord <- ordinate(ps_f, method = "PCoA", distance = jaccard)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = life_stage)) +
+  geom_point(size = 3) +
+  facet_wrap(~ Region) +
+  theme_classic()
+
+ps_f_genus <- tax_glom(ps_f, taxrank = "Genus")
+mat <- as(otu_table(ps_f_genus), "matrix")
+
+if (taxa_are_rows(ps_f_genus)) {
+  mat <- t(mat)
+}
+
+pa_mat <- (mat > 0) * 1
+
+meta_mat <- meta_f[match(rownames(mat), rownames(meta_f)), , drop = FALSE]
+
+group <- meta_mat$life_stage
+group_levels <- unique(group)
+
+pvals <- apply(pa_mat, 2, function(x) {
+  tab <- table(x, group)
+
+  if (length(unique(x)) < 2) return(NA)
+
+  fisher.test(tab)$p.value
+})
+
+p_adj <- p.adjust(pvals, method = "BH")
+
+sig_taxa <- names(p_adj)[p_adj < 0.05 & !is.na(p_adj)]
+
+pa_sig <- pa_mat[, sig_taxa, drop = FALSE]
+
+prev_list <- list()
+count_list <- list()
+
+for (g in group_levels) {
+  sub <- pa_sig[group == g, , drop = FALSE]
+
+  prev_list[[g]] <- colMeans(sub)
+  count_list[[g]] <- colSums(sub)
+}
+
+tax <- as.data.frame(tax_table(ps_f_genus))
+
+tax_labels <- tax$Genus
+names(tax_labels) <- rownames(tax)
+
+df2 <- data.frame(
+  Taxon = colnames(pa_sig),
+  Label = tax_labels[colnames(pa_sig)]
+)
+
+for (g in group_levels) {
+  df2[[paste0(g, "_prev")]] <- prev_list[[g]]
+  df2[[paste0(g, "_n")]]    <- count_list[[g]]
+}
+
+df2$diff <- df2[[paste0(group_levels[1], "_prev")]] -
+            df2[[paste0(group_levels[2], "_prev")]]
+
+df2 <- df2[order(df2$diff, decreasing = TRUE), ]
+tax_levels <- df2$Label
+
+df2_prev_long <- pivot_longer(
+  df2,
+  cols = ends_with("_prev"),
+  names_to = "Group",
+  values_to = "Prevalence"
+)
+
+df2_count_long <- pivot_longer(
+  df2,
+  cols = ends_with("_n"),
+  names_to = "Group_n",
+  values_to = "Count"
+)
+
+df2_prev_long$Group <- gsub("_prev", "", df2_prev_long$Group)
+df2_count_long$Group_n <- gsub("_n", "", df2_count_long$Group_n)
+
+df2_long <- df2_prev_long
+df2_long$Count <- df2_count_long$Count
+
+df2_long$Label[is.na(df2_long$Label)] <- df2_long$Taxon
+
+df2_long$Label <- factor(df2_long$Label, levels = tax_levels)
+
+df2_long$Count_label <- ifelse(df2_long$Count > 0, df2_long$Count, "")
+
+ggplot(df2_long, aes(
+  x = Group,
+  y = Label,
+  size = Prevalence,
+  color = Group
+)) +
+  geom_point(alpha = 0.85) +
+  
+  geom_text(aes(label = Count_label),
+            size = 2,
+            color = "black") +
+  
+  scale_size(range = c(2, 10)) +
+  theme_classic(base_size = 14) +
+  labs(
+    x = NULL,
+    y = "Taxonomy (Genus)",
+    size = "Prevalence",
+    color = "Group",
+    title = "Significant taxa (FDR < 0.05)\nBubble size = prevalence, numbers = sample counts"
+  )
 
 ######################################################################################
 #Phytoplasma +ve vs -ve
@@ -1411,6 +2174,132 @@ ggplot(pcoa_df, aes(PC1, PC2, color = Infectious_Status_Insect)) +
   coord_cartesian(clip = "off") +
   theme_classic() +
   theme(plot.margin = margin(5.5, 40, 5.5, 5.5))
+
+
+ps_simple <- phyloseq::phyloseq(
+  phyloseq::otu_table(ps_f),
+  phyloseq::sample_data(ps_f)
+)
+ps_pa <- transform_sample_counts(ps_simple, function(x) as.numeric(x > 0))
+jaccard <- phyloseq::distance(ps_pa, method = "jaccard")
+ord <- ordinate(ps_f, method = "PCoA", distance = jaccard)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = Infectious_Status_Insect)) +
+  geom_point(size = 3) +
+  facet_wrap(~ Region) +
+  theme_classic()
+
+ps_f_genus <- tax_glom(ps_f, taxrank = "Genus")
+mat <- as(otu_table(ps_f_genus), "matrix")
+
+if (taxa_are_rows(ps_f_genus)) {
+  mat <- t(mat)
+}
+
+pa_mat <- (mat > 0) * 1
+
+meta_mat <- meta_f[match(rownames(pa_mat), rownames(meta_f)), , drop = FALSE]
+
+group <- meta_mat$Infectious_Status_Insect
+group_levels <- unique(group)
+
+pvals <- apply(pa_mat, 2, function(x) {
+  tab <- table(x, group)
+
+  if (length(unique(x)) < 2) return(NA)
+
+  fisher.test(tab)$p.value
+})
+
+p_adj <- p.adjust(pvals, method = "BH")
+
+sig_taxa <- names(p_adj)[p_adj < 0.05 & !is.na(p_adj)]
+
+pa_sig <- pa_mat[, sig_taxa, drop = FALSE]
+
+prev_list <- list()
+count_list <- list()
+
+for (g in group_levels) {
+  sub <- pa_sig[group == g, , drop = FALSE]
+  prev_list[[g]] <- colMeans(sub)
+  count_list[[g]] <- colSums(sub)
+}
+
+tax <- as.data.frame(tax_table(ps_f_genus))
+
+tax_labels <- tax$Genus
+names(tax_labels) <- rownames(tax)
+
+df2 <- data.frame(
+  Taxon = colnames(pa_sig),
+  Label = tax_labels[colnames(pa_sig)]
+)
+
+for (g in group_levels) {
+  df2[[paste0(g, "_prev")]] <- prev_list[[g]]
+  df2[[paste0(g, "_n")]]    <- count_list[[g]]
+}
+
+df2$diff <- df2[[paste0(group_levels[1], "_prev")]] -
+            df2[[paste0(group_levels[2], "_prev")]]
+
+df2 <- df2[order(df2$diff, decreasing = TRUE), ]
+tax_levels <- df2$Label
+
+df2_prev_long <- pivot_longer(
+  df2,
+  cols = ends_with("_prev"),
+  names_to = "Group",
+  values_to = "Prevalence"
+)
+
+df2_count_long <- pivot_longer(
+  df2,
+  cols = ends_with("_n"),
+  names_to = "Group_n",
+  values_to = "Count"
+)
+
+df2_prev_long$Group <- gsub("_prev", "", df2_prev_long$Group)
+df2_count_long$Group_n <- gsub("_n", "", df2_count_long$Group_n)
+
+df2_long <- df2_prev_long
+df2_long$Count <- df2_count_long$Count
+
+df2_long$Label[is.na(df2_long$Label)] <- df2_long$Taxon
+
+df2_long$Label <- factor(df2_long$Label, levels = tax_levels)
+
+df2_long$Count_label <- ifelse(df2_long$Count > 0, df2_long$Count, "")
+
+ggplot(df2_long, aes(
+  x = Group,
+  y = Label,
+  size = Prevalence,
+  color = Group
+)) +
+  geom_point(alpha = 0.85) +
+  
+  geom_text(aes(label = Count_label),
+            size = 2,
+            color = "black") +
+  
+  scale_size(range = c(2, 10)) +
+  theme_classic(base_size = 14) +
+  labs(
+    x = NULL,
+    y = "Taxonomy (Genus)",
+    size = "Prevalence",
+    color = "Group",
+    title = "Significant taxa (FDR < 0.05)\nBubble size = prevalence, numbers = sample counts"
+  )
+
 ````
 
 ## Reanalyse Maja data <a name="13"></a>
@@ -2098,3 +2987,1872 @@ apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barp
   --o-visualization "$ASV_dir"/V4-515f-806r-nimal-distal-gut-taxa-barplot_maja1.qzv
 ```
 https://view.qiime2.org/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Lapo
+### Curate <a name="14"></a>
+Manually edit taxonomy to select the best supported classification accross IDTAXA, QIIME, and BLAST
+```bash
+#re-import
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureData[Taxonomy]' \
+  --input-path /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/ASV_16S.megablast.tophit.with_taxonomy2_edited_Lapo.tsv.txt \
+  --output-path  /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo.qza \
+  --input-format TSVTaxonomyFormat
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i "$ASV_dir"/qiime_inputs/qiime_inputsASV_table_Lapo.tsv \
+  -o "$ASV_dir"/qiime_inputs/ASV_table_Lapo.biom \
+  --table-type="OTU table" \
+  --to-hdf5
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureTable[Frequency]' \
+  --input-path "$ASV_dir"/qiime_inputs/ASV_table_Lapo.biom \
+  --output-path "$ASV_dir"/qiime_inputs/table_Lapo.qza
+
+#remove organelle hits
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa filter-table \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/qiime_inputs/table_Lapo.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo.qza \
+  --p-exclude mitochondria,chloroplast \
+  --o-filtered-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo.qza
+
+#Visualise:
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barplot \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo.qza \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/taxa-barplot-no-organelle_Lapo.qzv
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime feature-table summarize \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo.qza \
+  --o-visualization asv-summary_Lapo.qzv
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo.qza \
+  --output-path exported_table_Lapo
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i exported_table_Lapo/feature-table.biom \
+  -o feature-table_Lapo.tsv \
+  --to-tsv
+```
+```python
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("feature-table_Lapo.tsv", sep="\t", skiprows=1, index_col=0)
+
+# ASVs per sample (richness)
+asvs_per_sample = (df > 0).sum(axis=0)
+
+mean = asvs_per_sample.mean()
+median = asvs_per_sample.median()
+mode = stats.mode(asvs_per_sample, keepdims=True).mode[0]
+minimum = asvs_per_sample.min()
+maximum = asvs_per_sample.max()
+
+print("Mean ASVs per sample:", mean)
+print("Median ASVs per sample:", median)
+print("Mode ASVs per sample:", mode)
+print("Min ASVs per sample:", minimum)
+print("Max ASVs per sample:", maximum)
+```
+Mean ASVs per sample: 21.435897435897434
+Median ASVs per sample: 16.0
+Mode ASVs per sample: 8
+Min ASVs per sample: 5
+Max ASVs per sample: 84
+
+
+Collapse to genus/family level:
+```bash
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa collapse \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo.qza \
+  --p-level 6 \
+  --o-collapsed-table genus-table_Lapo.qza
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path genus-table_Lapo.qza \
+  --output-path genus_export_Lapo
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i genus_export_Lapo/feature-table.biom \
+  -o genus-table_Lapo.tsv \
+  --to-tsv
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa collapse \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo.qza \
+  --p-level 5 \
+  --o-collapsed-table family-table_Lapo.qza
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path family-table_Lapo.qza \
+  --output-path family_export_Lapo
+
+apptainer exec ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i family_export_Lapo/feature-table.biom \
+  -o family-table_Lapo.tsv \
+  --to-tsv
+```
+plot
+
+```bash
+ASV_dir=/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs
+down_dir=/data/users/theaven/C_melanoneura_microbiome/down_20260505
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+
+#export feature table
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path "$ASV_dir"/table-no-mitochondria-chloroplast_Lapo.qza \
+  --output-path "$ASV_dir"/exported-feature-table_Lapo
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i "$ASV_dir"/exported-feature-table_Lapo/feature-table.biom \
+  -o "$down_dir"/feature-table_Lapo.tsv \
+  --to-tsv
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path "$ASV_dir"/reimported_Lapo.qza \
+  --output-path "$down_dir"/exported-taxonomy_Lapo
+
+cp /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv "$down_dir"/
+```
+```R
+install.packages(c("tidyverse"))
+install.packages("BiocManager")
+install.packages("ggrepel")
+BiocManager::install("phyloseq")
+BiocManager::install("microbiome")
+
+library(phyloseq)
+library(tidyverse)
+library(readr)
+library(tibble)
+library(ggplot2)
+library(tidyr)
+library(RColorBrewer)
+library(ggrepel)
+
+setwd("C:/Users/THeaven/OneDrive - Scientific Network South Tyrol/R")
+set.seed(1)
+
+# Load table
+otu <- read.table("down_20260505/feature-table_Lapo.tsv", header=TRUE, row.names=1, sep="\t", comment.char="")
+otu <- as.matrix(otu)
+colnames(otu) <- gsub("\\.", "-", colnames(otu))
+
+# Load metadata
+meta <- read_tsv(
+  "down_20260505/sample-metadata.tsv",
+  comment = "",  
+  show_col_types = FALSE
+)
+meta <- column_to_rownames(meta, var = "#SampleID")
+
+tax <- read.table("down_20260505/exported-taxonomy_Lapo/taxonomy.tsv", 
+                  header = TRUE, 
+                  sep = "\t", 
+                  row.names = 1)
+tax_split <- tax %>%
+  separate(Taxon, 
+           into = c("Kingdom","Phylum","Class","Order","Family","Genus","Species"), 
+           sep = ";", 
+           fill = "right")
+
+# Create objects
+OTU <- otu_table(otu, taxa_are_rows=TRUE)
+SAM <- sample_data(meta)
+TAX <- tax_table(as.matrix(tax_split))
+ps <- phyloseq(OTU, SAM, TAX)
+
+tax_table(ps) <- apply(tax_table(ps), 2, trimws)
+tax_table(ps)[, "Genus"] <- gsub("^s__", "g__", tax_table(ps)[, "Genus"])
+
+
+ps_genus <- tax_glom(ps, taxrank = "Genus")
+
+ps_rel <- transform_sample_counts(ps_genus, function(x) x / sum(x))
+
+df <- psmelt(ps_rel)
+
+taxa_abund <- tapply(df$Abundance, df$Genus, sum)
+
+top10 <- names(sort(taxa_abund, decreasing = TRUE))[1:10]
+
+keep_extra <- c("g__Candidatus_Sulcia", "g__Candidatus_Carsonella")
+
+fixed_cols <- c(
+  "g__Candidatus_Sulcia" = "#FF00FF",
+  "g__Candidatus_Carsonella" = "#000000"
+)
+
+keep_taxa <- unique(c(top10, keep_extra))
+
+df$Genus <- as.character(df$Genus)
+
+df$Genus[!df$Genus %in% keep_taxa] <- "Other"
+
+all_taxa <- unique(df$Genus)
+
+fixed_taxa <- names(fixed_cols)
+
+auto_taxa <- setdiff(all_taxa, fixed_taxa)
+auto_taxa <- setdiff(auto_taxa, "Other")
+
+auto_cols <- setNames(c(
+  "aquamarine3",  "yellow2", "red3", "palegreen2",
+  "deeppink4",  "skyblue3",
+  "sienna2", "maroon3", "wheat3", "royalblue3"
+), auto_taxa)
+
+other_col <- c("Other" = "grey80")
+
+final_cols <- c(auto_cols, fixed_cols, other_col)
+
+df$Genus <- factor(df$Genus, levels = names(final_cols))
+
+######################################################################################
+
+get_alpha <- function(ps_obj, meta_obj) {
+  alpha <- estimate_richness(ps_obj,
+                             measures = c("Shannon", "Simpson", "Chao1", "Observed"))
+  rownames(alpha) <- gsub("\\.", "-", rownames(alpha))
+  alpha$Sample <- rownames(alpha)
+  meta_obj$Sample <- rownames(meta_obj)
+  df <- merge(alpha, meta_obj, by = "Sample")
+  return(df)
+}
+
+######################################################################################
+#Field only, Apple vs hawthorn but keep the country of origin
+df_sub <- subset(df, Field_Lab2 == "field")
+
+df_sub$host <- as.character(df_sub$host)
+df_sub$country <- as.character(df_sub$country)
+df_sub$Sample <- as.character(df_sub$Sample)
+
+# create hierarchical grouping key
+df_sub$Group <- paste(df_sub$host, df_sub$country, sep = "_")
+df_sub$Label <- paste(df_sub$country, df_sub$host, df_sub$Sample)
+
+df_sub$Group <- factor(df_sub$Group, levels = unique(df_sub$Group))
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+df_sub <- df_sub[order(df_sub$country, df_sub$host, df_sub$Sample), ]
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+ggplot(df_sub, aes(x = Label, y = Abundance, fill = Genus)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = final_cols) +
+  scale_x_discrete(drop = FALSE) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  )
+
+meta_f <- meta[meta$Field_Lab2 == "field", ]
+ps_f <- prune_samples(rownames(meta_f), ps)
+
+alpha_df <- get_alpha(ps_f, meta_f)
+
+ggplot(alpha_df, aes(x = host, y = Shannon, fill = host)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.3, width = 0.6) +
+  geom_jitter(aes(color = host),
+              width = 0.15,
+              alpha = 0.7,
+              size = 2) +
+  facet_wrap(~ country) +
+  scale_fill_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  scale_color_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    strip.text = element_text(size = 16)
+  ) +
+  guides(color = "none")
+
+bray <- phyloseq::distance(ps_f, method = "bray")
+ord <- ordinate(ps_f, method = "PCoA", distance = bray)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  facet_wrap(~ country) +
+  scale_color_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    strip.text = element_text(size = 16, face = "bold")
+  )
+
+ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  geom_text_repel(
+    aes(label = Sample),
+    size = 3,
+    max.overlaps = Inf,
+    force = 2
+  ) +
+  facet_wrap(~ country) +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  theme(plot.margin = margin(5.5, 40, 5.5, 5.5))
+
+by(alpha_df$Shannon, list(alpha_df$country, alpha_df$host), shapiro.test)
+#Italy samples are not normally distrubuted
+alpha_results <- list()
+
+for (ct in unique(alpha_df$country)) {
+  
+  df_ct <- subset(alpha_df, country == ct)
+  
+  test <- wilcox.test(Shannon ~ host, data = df_ct)
+  
+  alpha_results[[ct]] <- test
+}
+
+alpha_results
+
+pairwise.wilcox.test(alpha_df$Shannon,
+                     alpha_df$country,
+                     p.adjust.method = "BH")
+
+library(vegan)
+
+results <- list()
+
+for (ct in unique(meta_f$country)) {
+  
+  # subset samples for one country
+  meta_ct <- meta_f[meta_f$country == ct, ]
+  ps_ct <- prune_samples(rownames(meta_ct), ps_f)
+  
+  # Bray-Curtis distance
+  bray_ct <- phyloseq::distance(ps_ct, method = "bray")
+  
+  # run PERMANOVA
+  ad <- adonis2(bray_ct ~ host, data = meta_ct, permutations = 999)
+  
+  results[[ct]] <- ad
+}
+
+results
+````
+
+
+## Lapo - germany
+### Curate <a name="14"></a>
+Manually edit taxonomy to select the best supported classification accross IDTAXA, QIIME, and BLAST
+```bash
+#re-import
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureData[Taxonomy]' \
+  --input-path /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/lapo_tax.txt \
+  --output-path  /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo2.qza \
+  --input-format TSVTaxonomyFormat
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i "$ASV_dir"/qiime_inputs/lapo_table.txt \
+  -o "$ASV_dir"/qiime_inputs/ASV_table_Lapo2.biom \
+  --table-type="OTU table" \
+  --to-hdf5
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureTable[Frequency]' \
+  --input-path "$ASV_dir"/qiime_inputs/ASV_table_Lapo2.biom \
+  --output-path "$ASV_dir"/qiime_inputs/table_Lapo2.qza
+
+#remove organelle hits
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa filter-table \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/qiime_inputs/table_Lapo2.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo2.qza \
+  --p-exclude mitochondria,chloroplast \
+  --o-filtered-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo2.qza
+
+#Visualise:
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barplot \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo2.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo2.qza \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/taxa-barplot-no-organelle_Lapo2.qzv
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime feature-table summarize \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo2.qza \
+  --o-visualization asv-summary_Lapo2.qzv
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo2.qza \
+  --output-path exported_table_Lapo2
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i exported_table_Lapo2/feature-table.biom \
+  -o feature-table_Lapo2.tsv \
+  --to-tsv
+```
+```python
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("feature-table_Lapo2.tsv", sep="\t", skiprows=1, index_col=0)
+
+# ASVs per sample (richness)
+asvs_per_sample = (df > 0).sum(axis=0)
+
+mean = asvs_per_sample.mean()
+median = asvs_per_sample.median()
+mode = stats.mode(asvs_per_sample, keepdims=True).mode[0]
+minimum = asvs_per_sample.min()
+maximum = asvs_per_sample.max()
+
+print("Mean ASVs per sample:", mean)
+print("Median ASVs per sample:", median)
+print("Mode ASVs per sample:", mode)
+print("Min ASVs per sample:", minimum)
+print("Max ASVs per sample:", maximum)
+```
+Mean ASVs per sample: 10.924242424242424
+Median ASVs per sample: 9.0
+Mode ASVs per sample: 6
+Min ASVs per sample: 5
+Max ASVs per sample: 38
+
+
+Collapse to genus/family level:
+```bash
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa collapse \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo2.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo2.qza \
+  --p-level 6 \
+  --o-collapsed-table genus-table_Lapo2.qza
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path genus-table_Lapo2.qza \
+  --output-path genus_export_Lapo2
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i genus_export_Lapo2/feature-table.biom \
+  -o genus-table_Lapo2.tsv \
+  --to-tsv
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa collapse \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo2.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo2.qza \
+  --p-level 5 \
+  --o-collapsed-table family-table_Lapo2.qza
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path family-table_Lapo2.qza \
+  --output-path family_export_Lapo2
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i family_export_Lapo2/feature-table.biom \
+  -o family-table_Lapo2.tsv \
+  --to-tsv
+```
+plot
+
+```bash
+ASV_dir=/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs
+down_dir=/data/users/theaven/C_melanoneura_microbiome/down_20260526
+
+#export feature table
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path "$ASV_dir"/table-no-mitochondria-chloroplast_Lapo2.qza \
+  --output-path "$ASV_dir"/exported-feature-table_Lapo2
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i "$ASV_dir"/exported-feature-table_Lapo2/feature-table.biom \
+  -o "$down_dir"/feature-table_Lapo2.tsv \
+  --to-tsv
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path "$ASV_dir"/reimported_Lapo2.qza \
+  --output-path "$down_dir"/exported-taxonomy_Lapo2
+
+cp /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv "$down_dir"/
+```
+```R
+install.packages(c("tidyverse"))
+install.packages("BiocManager")
+install.packages("ggrepel")
+BiocManager::install("phyloseq")
+BiocManager::install("microbiome")
+
+library(phyloseq)
+library(tidyverse)
+library(readr)
+library(tibble)
+library(ggplot2)
+library(tidyr)
+library(RColorBrewer)
+library(ggrepel)
+
+setwd("C:/Users/THeaven/OneDrive - Scientific Network South Tyrol/R")
+set.seed(1)
+
+# Load table
+otu <- read.table("down_20260526/feature-table_Lapo2.tsv", header=TRUE, row.names=1, sep="\t", comment.char="")
+otu <- as.matrix(otu)
+colnames(otu) <- gsub("\\.", "-", colnames(otu))
+
+# Load metadata
+meta <- read_tsv(
+  "down_20260505/sample-metadata.tsv",
+  comment = "",  
+  show_col_types = FALSE
+)
+meta <- column_to_rownames(meta, var = "#SampleID")
+
+tax <- read.table("down_20260526/exported-taxonomy_Lapo2/taxonomy.tsv", 
+                  header = TRUE, 
+                  sep = "\t", 
+                  row.names = 1)
+tax_split <- tax %>%
+  separate(Taxon, 
+           into = c("Kingdom","Phylum","Class","Order","Family","Genus","Species"), 
+           sep = ";", 
+           fill = "right")
+
+# Create objects
+OTU <- otu_table(otu, taxa_are_rows=TRUE)
+SAM <- sample_data(meta)
+TAX <- tax_table(as.matrix(tax_split))
+ps <- phyloseq(OTU, SAM, TAX)
+
+tax_table(ps) <- apply(tax_table(ps), 2, trimws)
+tax_table(ps)[, "Genus"] <- gsub("^s__", "g__", tax_table(ps)[, "Genus"])
+
+
+ps_genus <- tax_glom(ps, taxrank = "Genus")
+
+ps_rel <- transform_sample_counts(ps_genus, function(x) x / sum(x))
+
+df <- psmelt(ps_rel)
+
+taxa_abund <- tapply(df$Abundance, df$Genus, sum)
+
+top10 <- names(sort(taxa_abund, decreasing = TRUE))[1:10]
+
+keep_extra <- c("g__Candidatus_Sulcia", "g__Candidatus_Carsonella")
+
+fixed_cols <- c(
+  "g__Candidatus_Sulcia" = "#FF00FF",
+  "g__Candidatus_Carsonella" = "#000000"
+)
+
+keep_taxa <- unique(c(top10, keep_extra))
+
+df$Genus <- as.character(df$Genus)
+
+df$Genus[!df$Genus %in% keep_taxa] <- "Other"
+
+all_taxa <- unique(df$Genus)
+
+fixed_taxa <- names(fixed_cols)
+
+auto_taxa <- setdiff(all_taxa, fixed_taxa)
+auto_taxa <- setdiff(auto_taxa, "Other")
+
+auto_cols <- setNames(c(
+  "aquamarine3",  "yellow2", "red3", "palegreen2",
+  "deeppink4",  "skyblue3",
+  "sienna2", "maroon3", "wheat3", "royalblue3"
+), auto_taxa)
+
+other_col <- c("Other" = "grey80")
+
+final_cols <- c(auto_cols, fixed_cols, other_col)
+
+df$Genus <- factor(df$Genus, levels = names(final_cols))
+
+######################################################################################
+
+get_alpha <- function(ps_obj, meta_obj) {
+  alpha <- estimate_richness(ps_obj,
+                             measures = c("Shannon", "Simpson", "Chao1", "Observed"))
+  rownames(alpha) <- gsub("\\.", "-", rownames(alpha))
+  alpha$Sample <- rownames(alpha)
+  meta_obj$Sample <- rownames(meta_obj)
+  df <- merge(alpha, meta_obj, by = "Sample")
+  return(df)
+}
+
+######################################################################################
+#Field only, Apple vs hawthorn but keep the country of origin
+df_sub <- subset(df, Field_Lab2 == "field")
+
+df_sub$host <- as.character(df_sub$host)
+df_sub$country <- as.character(df_sub$country)
+df_sub$Sample <- as.character(df_sub$Sample)
+
+# create hierarchical grouping key
+df_sub$Group <- paste(df_sub$host, df_sub$country, sep = "_")
+df_sub$Label <- paste(df_sub$country, df_sub$host, df_sub$Sample)
+
+df_sub$Group <- factor(df_sub$Group, levels = unique(df_sub$Group))
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+df_sub <- df_sub[order(df_sub$country, df_sub$host, df_sub$Sample), ]
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+ggplot(df_sub, aes(x = Label, y = Abundance, fill = Genus)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = final_cols) +
+  scale_x_discrete(drop = FALSE) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  )
+
+meta_f <- meta[meta$Field_Lab2 == "field" & meta$country != "Germany", ]
+ps_f <- prune_samples(rownames(meta_f), ps)
+
+alpha_df <- get_alpha(ps_f, meta_f)
+
+ggplot(alpha_df, aes(x = host, y = Shannon, fill = host)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.3, width = 0.6) +
+  geom_jitter(aes(color = host),
+              width = 0.15,
+              alpha = 0.7,
+              size = 2) +
+  facet_wrap(~ country) +
+  scale_fill_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  scale_color_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    strip.text = element_text(size = 16)
+  ) +
+  guides(color = "none")
+
+bray <- phyloseq::distance(ps_f, method = "bray")
+ord <- ordinate(ps_f, method = "PCoA", distance = bray)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  facet_wrap(~ country) +
+  scale_color_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    strip.text = element_text(size = 16, face = "bold")
+  )
+
+ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  geom_text_repel(
+    aes(label = Sample),
+    size = 3,
+    max.overlaps = Inf,
+    force = 2
+  ) +
+  facet_wrap(~ country) +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  theme(plot.margin = margin(5.5, 40, 5.5, 5.5))
+
+by(alpha_df$Shannon, list(alpha_df$country, alpha_df$host), shapiro.test)
+#Italy samples are not normally distrubuted
+alpha_results <- list()
+for (ct in unique(alpha_df$country)) {
+  
+  df_ct <- subset(alpha_df, country == ct)
+  
+  test <- wilcox.test(Shannon ~ host, data = df_ct)
+  
+  alpha_results[[ct]] <- test
+}
+
+alpha_results
+#significant for italy: p-value = 0.03952, not for Austria 0.8182 or Czech republic 0.3939
+
+pairwise.wilcox.test(alpha_df$Shannon,
+                     alpha_df$country,
+                     p.adjust.method = "BH")
+#No significant differences in Shannon diversity between any pair of countries
+#               Austria Czech Republic
+#Czech Republic 0.88    -             
+#Italy          0.88    0.93
+
+library(vegan)
+
+results <- list()
+
+for (ct in unique(meta_f$country)) {
+  
+  # subset samples for one country
+  meta_ct <- meta_f[meta_f$country == ct, ]
+  ps_ct <- prune_samples(rownames(meta_ct), ps_f)
+  
+  # Bray-Curtis distance
+  bray_ct <- phyloseq::distance(ps_ct, method = "bray")
+  
+  # run PERMANOVA
+  ad <- adonis2(bray_ct ~ host, data = meta_ct, permutations = 999)
+  
+  results[[ct]] <- ad
+}
+
+results
+
+#Host has significant effect in Asutria and Czech Republic but not Italy
+#Austria:
+#         Df SumOfSqs      R2      F Pr(>F)   
+#Model     1  2.89993 0.93568 145.47  0.002 **
+#Residual 10  0.19935 0.06432                 
+#Total    11  3.09928 1.00000
+#Czech Republic: 
+#         Df SumOfSqs      R2      F Pr(>F)   
+#Model     1   1.6024 0.52454 11.033  0.005 **
+#Residual 10   1.4524 0.47546                 
+#Total    11   3.0548 1.00000 
+#Italy:
+#         Df SumOfSqs      R2      F Pr(>F)
+#Model     1  0.02192 0.00839 0.3385  0.949
+#Residual 40  2.59036 0.99161              
+#Total    41  2.61228 1.00000 
+
+
+
+####
+
+ps_simple <- phyloseq::phyloseq(
+  phyloseq::otu_table(ps_f),
+  phyloseq::sample_data(ps_f)
+)
+ps_pa <- transform_sample_counts(ps_simple, function(x) as.numeric(x > 0))
+jaccard <- phyloseq::distance(ps_pa, method = "jaccard")
+ord <- ordinate(ps_f, method = "PCoA", distance = jaccard)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+
+  ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  facet_wrap(~ country) +
+  scale_color_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    strip.text = element_text(size = 16, face = "bold")
+  )
+
+
+####
+meta_f2 <- meta[meta$Field_Lab2 == "field" & meta$country != "Germany" & meta$country != "Italy", ]
+ps_f2 <- prune_samples(rownames(meta_f2), ps)
+ps_f_genus <- tax_glom(ps_f2, taxrank = "Genus")
+ps_f_genus_filtered <- filter_taxa(ps_f_genus, function(x) sum(x) > 0, TRUE)
+
+
+
+mat <- as(otu_table(ps_f_genus_filtered), "matrix")
+
+if (taxa_are_rows(ps_f_genus)) {
+  mat <- t(mat)
+}
+
+pa_mat <- (mat > 0) * 1
+
+
+# ----------------------------
+# 2. Metadata alignment
+# ----------------------------
+meta_mat <- meta_f[match(rownames(mat), rownames(meta_f)), , drop = FALSE]
+
+group <- meta_mat$host
+group_levels <- unique(group)
+
+
+# ----------------------------
+# 3. Fisher’s exact test per taxon
+# ----------------------------
+pvals <- apply(pa_mat, 2, function(x) {
+  tab <- table(x, group)
+
+  if (length(unique(x)) < 2) return(NA)
+
+  fisher.test(tab)$p.value
+})
+
+p_adj <- p.adjust(pvals, method = "BH")
+
+
+# ----------------------------
+# 4. Keep only significant taxa
+# ----------------------------
+sig_taxa <- names(p_adj)[p_adj < 0.05 & !is.na(p_adj)]
+
+pa_sig <- pa_mat[, sig_taxa, drop = FALSE]
+
+
+# ----------------------------
+# 5. Prevalence + raw counts per group
+# ----------------------------
+prev_list <- list()
+count_list <- list()
+
+for (g in group_levels) {
+  sub <- pa_sig[group == g, , drop = FALSE]
+
+  prev_list[[g]] <- colMeans(sub)
+  count_list[[g]] <- colSums(sub)
+}
+
+
+# ----------------------------
+# 6. Taxonomy labels
+# ----------------------------
+tax <- as.data.frame(tax_table(ps_f_genus))
+
+tax_labels <- tax$Genus
+names(tax_labels) <- rownames(tax)
+
+
+# ----------------------------
+# 7. Build summary table (df2)
+# ----------------------------
+df2 <- data.frame(
+  Taxon = colnames(pa_sig),
+  Label = tax_labels[colnames(pa_sig)]
+)
+
+for (g in group_levels) {
+  df2[[paste0(g, "_prev")]] <- prev_list[[g]]
+  df2[[paste0(g, "_n")]]    <- count_list[[g]]
+}
+
+
+# ----------------------------
+# 8. Effect size
+# ----------------------------
+df2$diff <- df2[[paste0(group_levels[1], "_prev")]] -
+            df2[[paste0(group_levels[2], "_prev")]]
+
+
+# ----------------------------
+# 9. Order taxa by effect size
+# ----------------------------
+df2 <- df2[order(df2$diff, decreasing = TRUE), ]
+tax_levels <- df2$Label
+
+
+# ----------------------------
+# 10. Long format
+# ----------------------------
+library(tidyr)
+
+df2_prev_long <- pivot_longer(
+  df2,
+  cols = ends_with("_prev"),
+  names_to = "Group",
+  values_to = "Prevalence"
+)
+
+df2_count_long <- pivot_longer(
+  df2,
+  cols = ends_with("_n"),
+  names_to = "Group_n",
+  values_to = "Count"
+)
+
+df2_prev_long$Group <- gsub("_prev", "", df2_prev_long$Group)
+df2_count_long$Group_n <- gsub("_n", "", df2_count_long$Group_n)
+
+df2_long <- df2_prev_long
+df2_long$Count <- df2_count_long$Count
+
+
+# ----------------------------
+# 11. Clean labels
+# ----------------------------
+df2_long$Label[is.na(df2_long$Label)] <- df2_long$Taxon
+
+
+# ----------------------------
+# 12. Enforce ordering
+# ----------------------------
+df2_long$Label <- factor(df2_long$Label, levels = tax_levels)
+
+
+# ----------------------------
+# 13. Hide zero counts
+# ----------------------------
+df2_long$Count_label <- ifelse(df2_long$Count > 0, df2_long$Count, "")
+
+
+# ----------------------------
+# 14. Plot
+# ----------------------------
+library(ggplot2)
+
+ggplot(df2_long, aes(
+  x = Group,
+  y = Label,
+  size = Prevalence,
+  color = Group
+)) +
+  geom_point(alpha = 0.85) +
+  
+  geom_text(aes(label = Count_label),
+            size = 2,
+            color = "black") +
+  
+  scale_size(range = c(2, 10)) +
+  theme_classic(base_size = 14) +
+  labs(
+    x = NULL,
+    y = "Taxonomy (Genus)",
+    size = "Prevalence",
+    color = "Group",
+    title = "Significant taxa (FDR < 0.05)\nBubble size = prevalence, numbers = sample counts"
+  )
+
+####
+# --- Extract taxonomy and rename columns ---
+tax_tab <- as.data.frame(tax_table(ps_f_genus_filtered))
+
+tax_names <- tax_tab$Genus
+tax_names[is.na(tax_names) | tax_names == ""] <- "Unknown"
+tax_names <- make.unique(tax_names)
+
+mat_asv <- mat
+colnames(mat_asv) <- tax_names
+
+
+# --- Relative abundance ---
+mat_genus_rel <- sweep(mat_asv, 1, rowSums(mat_asv), "/")
+mat_genus_rel_log <- log10(mat_genus_rel + 1e-6)
+
+# --- Order samples by country, then host ---
+meta_mat <- meta[rownames(mat_genus_rel_log), ]
+
+ord <- order(meta_mat$country, meta_mat$host)
+
+mat_ordered <- mat_genus_rel_log[ord, ]
+meta_ordered <- meta_mat[ord, ]
+
+
+# --- Define colors: 0 = white, then blue → red ---
+# Avoid including 0 in gradient
+nonzero_vals <- mat_ordered[mat_ordered > 0]
+
+colors <- colorRampPalette(c("blue", "white", "red"))(99)
+
+# --- Row annotations ---
+annotation_row <- data.frame(
+  Country = meta_ordered$country,
+  Host = meta_ordered$host
+)
+
+rownames(annotation_row) <- rownames(mat_ordered)
+
+# --- Optional: gaps between countries ---
+gaps <- cumsum(table(meta_ordered$country))
+
+
+# --- Plot heatmap ---
+pheatmap(
+  mat_ordered,
+  color = colorRampPalette(c("white", "blue", "red"))(100),
+  breaks = seq(
+    min(mat_ordered, na.rm = TRUE),
+    max(mat_ordered, na.rm = TRUE),
+    length.out = 101
+  ),
+  cluster_rows = FALSE,
+  cluster_cols = TRUE,
+  annotation_row = annotation_row,
+  gaps_row = gaps,
+  border_color = "grey90"
+)
+####
+
+meta_f2 <- meta[meta$Field_Lab2 == "field" & meta$country != "Germany" & meta$country != "Italy", ]
+ps_f2 <- prune_samples(rownames(meta_f2), ps)
+
+ps_f_genus <- tax_glom(ps_f2, taxrank = "Genus")
+ps_f_genus_filtered <- filter_taxa(ps_f_genus, function(x) sum(x) > 0, TRUE)
+
+
+mat <- as(otu_table(ps_f_genus_filtered), "matrix")
+ 
+if (taxa_are_rows(ps_f_genus_filtered)) {
+     mat <- t(mat)
+ }
+
+meta_mat <- meta[rownames(mat), ]
+group <- meta_mat$host
+
+tax_tab <- as.data.frame(tax_table(ps_f_genus_filtered))
+tax_names <- tax_tab$Genus
+tax_names[is.na(tax_names) | tax_names == ""] <- "Unknown"
+tax_names <- make.unique(tax_names)
+colnames(mat) <- tax_names
+
+pa_mat <- (mat > 0) * 1
+
+pa_df <- as.data.frame(pa_mat)
+pa_df$Group <- group
+pa_df$Group <- as.factor(pa_df$Group)
+
+upset(
+  pa_df,
+  intersect = colnames(pa_df)[colnames(pa_df) != "Group"],
+  name = "ASV intersections",
+  sort_intersections_by = "degree",
+  base_annotations = list(
+    'Intersection size' = intersection_size(aes(fill = Group))
+  )
+)
+
+#statistical test per ASV (Fisher’s exact test)
+pvals <- apply(pa_mat, 2, function(x) {
+  tab <- table(x, group)
+  if (nrow(tab) < 2 || ncol(tab) < 2) return(NA)
+  fisher.test(tab)$p.value
+})
+p_adj <- p.adjust(pvals, method = "BH")
+
+sig_asvs <- names(p_adj)[which(p_adj < 0.05)]
+
+pa_sig <- pa_mat[, sig_asvs, drop = FALSE]
+pa_df <- as.data.frame(pa_sig)
+pa_df$Group <- group
+pa_df$Group <- as.factor(pa_df$Group)
+
+#prev <- colSums(pa_df) / nrow(pa_df)
+#pa_df <- pa_df[, prev > 0.1]   # present in >10% samples
+
+upset(
+  pa_df,
+  intersect = colnames(pa_df)[colnames(pa_df) != "Group"],
+  name = "ASV intersections",
+  sort_intersections_by = "degree",
+  base_annotations = list(
+    'Intersection size' = intersection_size(aes(fill = Group))
+  )
+)
+
+upset(
+  pa_df,
+  intersect = colnames(pa_df)[colnames(pa_df) != "Group"],
+  name = "ASV intersections",
+  base_annotations = list(
+    'Intersection size' = intersection_size(aes(fill = Group))
+  )
+)
+````
+
+## Lapo - germany2
+### Curate <a name="14"></a>
+Manually edit taxonomy to select the best supported classification accross IDTAXA, QIIME, and BLAST
+
+Data entry error for ASV370 - repeat
+```bash
+ASV_dir=/data/users/theaven/C_melanoneura_microbiome/asvs/ASVs
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+
+#re-import
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools import \
+  --type 'FeatureData[Taxonomy]' \
+  --input-path /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/lapo_tax2.txt \
+  --output-path  /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo3.qza \
+  --input-format TSVTaxonomyFormat
+
+#remove organelle hits
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa filter-table \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/qiime_inputs/table_Lapo2.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo3.qza \
+  --p-exclude mitochondria,chloroplast \
+  --o-filtered-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo3.qza
+
+#Visualise:
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa barplot \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo3.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo3.qza \
+  --m-metadata-file /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv \
+  --o-visualization /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/taxa-barplot-no-organelle_Lapo3.qzv
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime feature-table summarize \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo3.qza \
+  --o-visualization asv-summary_Lapo3.qzv
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo3.qza \
+  --output-path exported_table_Lapo3
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i exported_table_Lapo3/feature-table.biom \
+  -o feature-table_Lapo3.tsv \
+  --to-tsv
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python
+```
+```python
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("feature-table_Lapo3.tsv", sep="\t", skiprows=1, index_col=0)
+
+# ASVs per sample (richness)
+asvs_per_sample = (df > 0).sum(axis=0)
+
+mean = asvs_per_sample.mean()
+median = asvs_per_sample.median()
+mode = stats.mode(asvs_per_sample, keepdims=True).mode[0]
+minimum = asvs_per_sample.min()
+maximum = asvs_per_sample.max()
+
+print("Mean ASVs per sample:", mean)
+print("Median ASVs per sample:", median)
+print("Mode ASVs per sample:", mode)
+print("Min ASVs per sample:", minimum)
+print("Max ASVs per sample:", maximum)
+```
+Mean ASVs per sample: 10.924242424242424
+Median ASVs per sample: 9.0
+Mode ASVs per sample: 6
+Min ASVs per sample: 5
+Max ASVs per sample: 38
+
+
+Collapse to genus/family level:
+```bash
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa collapse \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo3.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo3.qza \
+  --p-level 6 \
+  --o-collapsed-table genus-table_Lapo3.qza
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path genus-table_Lapo3.qza \
+  --output-path genus_export_Lapo3
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i genus_export_Lapo3/feature-table.biom \
+  -o genus-table_Lapo3.tsv \
+  --to-tsv
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime taxa collapse \
+  --i-table /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/table-no-mitochondria-chloroplast_Lapo3.qza \
+  --i-taxonomy /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/reimported_Lapo3.qza \
+  --p-level 5 \
+  --o-collapsed-table family-table_Lapo3.qza
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path family-table_Lapo3.qza \
+  --output-path family_export_Lapo3
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i family_export_Lapo3/feature-table.biom \
+  -o family-table_Lapo3.tsv \
+  --to-tsv
+```
+plot
+
+```bash
+down_dir=/data/users/theaven/C_melanoneura_microbiome/down_20260528
+mkdir "$down_dir"
+
+#export feature table
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path "$ASV_dir"/table-no-mitochondria-chloroplast_Lapo3.qza \
+  --output-path "$ASV_dir"/exported-feature-table_Lapo3
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif biom convert \
+  -i "$ASV_dir"/exported-feature-table_Lapo3/feature-table.biom \
+  -o "$down_dir"/feature-table_Lapo3.tsv \
+  --to-tsv
+
+apptainer exec --bind /data ~/git_repos/Containers/qiime2-amplicon-2025.7.sif qiime tools export \
+  --input-path "$ASV_dir"/reimported_Lapo3.qza \
+  --output-path "$down_dir"/exported-taxonomy_Lapo3
+
+cp /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/sample-metadata.tsv "$down_dir"/
+```
+```R
+install.packages(c("tidyverse"))
+install.packages("BiocManager")
+install.packages("ggrepel")
+BiocManager::install("phyloseq")
+BiocManager::install("microbiome")
+
+library(phyloseq)
+library(tidyverse)
+library(readr)
+library(tibble)
+library(ggplot2)
+library(tidyr)
+library(RColorBrewer)
+library(ggrepel)
+
+setwd("C:/Users/THeaven/OneDrive - Scientific Network South Tyrol/R")
+set.seed(1)
+
+# Load table
+otu <- read.table("down_20260528-2/feature-table_Lapo3.tsv", header=TRUE, row.names=1, sep="\t", comment.char="")
+otu <- as.matrix(otu)
+colnames(otu) <- gsub("\\.", "-", colnames(otu))
+
+# Load metadata
+meta <- read_tsv(
+  "down_20260505/sample-metadata.tsv",
+  comment = "",  
+  show_col_types = FALSE
+)
+meta <- column_to_rownames(meta, var = "#SampleID")
+
+tax <- read.table("down_20260528-2/exported-taxonomy_Lapo3/taxonomy.tsv", 
+                  header = TRUE, 
+                  sep = "\t", 
+                  row.names = 1)
+tax_split <- tax %>%
+  separate(Taxon, 
+           into = c("Kingdom","Phylum","Class","Order","Family","Genus","Species"), 
+           sep = ";", 
+           fill = "right")
+
+# Create objects
+OTU <- otu_table(otu, taxa_are_rows=TRUE)
+SAM <- sample_data(meta)
+TAX <- tax_table(as.matrix(tax_split))
+ps <- phyloseq(OTU, SAM, TAX)
+
+tax_table(ps) <- apply(tax_table(ps), 2, trimws)
+tax_table(ps)[, "Genus"] <- gsub("^s__", "g__", tax_table(ps)[, "Genus"])
+
+
+ps_genus <- tax_glom(ps, taxrank = "Genus")
+
+ps_rel <- transform_sample_counts(ps_genus, function(x) x / sum(x))
+
+df <- psmelt(ps_rel)
+
+taxa_abund <- tapply(df$Abundance, df$Genus, sum)
+
+top10 <- names(sort(taxa_abund, decreasing = TRUE))[1:10]
+
+keep_extra <- c("g__Candidatus_Sulcia", "g__Candidatus_Carsonella")
+
+fixed_cols <- c(
+  "g__Candidatus_Sulcia" = "#FF00FF",
+  "g__Candidatus_Carsonella" = "#000000"
+)
+
+keep_taxa <- unique(c(top10, keep_extra))
+
+df$Genus <- as.character(df$Genus)
+
+df$Genus[!df$Genus %in% keep_taxa] <- "Other"
+
+all_taxa <- unique(df$Genus)
+
+fixed_taxa <- names(fixed_cols)
+
+auto_taxa <- setdiff(all_taxa, fixed_taxa)
+auto_taxa <- setdiff(auto_taxa, "Other")
+
+auto_cols <- setNames(c(
+  "aquamarine3",  "yellow2", "red3", "palegreen2",
+  "deeppink4",  "skyblue3",
+  "sienna2", "maroon3", "wheat3", "royalblue3"
+), auto_taxa)
+
+other_col <- c("Other" = "grey80")
+
+final_cols <- c(auto_cols, fixed_cols, other_col)
+
+df$Genus <- factor(df$Genus, levels = names(final_cols))
+
+######################################################################################
+
+get_alpha <- function(ps_obj, meta_obj) {
+  alpha <- estimate_richness(ps_obj,
+                             measures = c("Shannon", "Simpson", "Chao1", "Observed"))
+  rownames(alpha) <- gsub("\\.", "-", rownames(alpha))
+  alpha$Sample <- rownames(alpha)
+  meta_obj$Sample <- rownames(meta_obj)
+  df <- merge(alpha, meta_obj, by = "Sample")
+  return(df)
+}
+
+######################################################################################
+#Field only, Apple vs hawthorn but keep the country of origin
+df_sub <- subset(df, Field_Lab2 == "field")
+
+df_sub$host <- as.character(df_sub$host)
+df_sub$country <- as.character(df_sub$country)
+df_sub$Sample <- as.character(df_sub$Sample)
+
+# create hierarchical grouping key
+df_sub$Group <- paste(df_sub$host, df_sub$country, sep = "_")
+df_sub$Label <- paste(df_sub$country, df_sub$host, df_sub$Sample)
+
+df_sub$Group <- factor(df_sub$Group, levels = unique(df_sub$Group))
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+df_sub <- df_sub[order(df_sub$country, df_sub$host, df_sub$Sample), ]
+df_sub$Label <- factor(df_sub$Label, levels = unique(df_sub$Label))
+
+ggplot(df_sub, aes(x = Label, y = Abundance, fill = Genus)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = final_cols) +
+  scale_x_discrete(drop = FALSE) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  )
+
+meta_f <- meta[meta$Field_Lab2 == "field" & meta$country != "Germany", ]
+ps_f <- prune_samples(rownames(meta_f), ps)
+
+alpha_df <- get_alpha(ps_f, meta_f)
+
+ggplot(alpha_df, aes(x = host, y = Shannon, fill = host)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.3, width = 0.6) +
+  geom_jitter(aes(color = host),
+              width = 0.15,
+              alpha = 0.7,
+              size = 2) +
+  facet_wrap(~ country) +
+  scale_fill_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  scale_color_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    strip.text = element_text(size = 16)
+  ) +
+  guides(color = "none")
+
+bray <- phyloseq::distance(ps_f, method = "bray")
+ord <- ordinate(ps_f, method = "PCoA", distance = bray)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  facet_wrap(~ country) +
+  scale_color_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    strip.text = element_text(size = 16, face = "bold")
+  )
+
+ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  geom_text_repel(
+    aes(label = Sample),
+    size = 3,
+    max.overlaps = Inf,
+    force = 2
+  ) +
+  facet_wrap(~ country) +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  theme(plot.margin = margin(5.5, 40, 5.5, 5.5))
+
+by(alpha_df$Shannon, list(alpha_df$country, alpha_df$host), shapiro.test)
+#Italy samples are not normally distrubuted
+alpha_results <- list()
+
+for (ct in unique(alpha_df$country)) {
+  
+  df_ct <- subset(alpha_df, country == ct)
+  
+  test <- wilcox.test(Shannon ~ host, data = df_ct)
+  
+  alpha_results[[ct]] <- test
+}
+
+alpha_results
+#significant for italy: p-value = 0.03952, not for Austria 0.8182 or Czech republic 0.3939
+
+pairwise.wilcox.test(alpha_df$Shannon,
+                     alpha_df$country,
+                     p.adjust.method = "BH")
+#No significant differences in Shannon diversity between any pair of countries
+#               Austria Czech Republic
+#Czech Republic 0.88    -             
+#Italy          0.88    0.93
+
+library(vegan)
+
+results <- list()
+
+for (ct in unique(meta_f$country)) {
+  
+  # subset samples for one country
+  meta_ct <- meta_f[meta_f$country == ct, ]
+  ps_ct <- prune_samples(rownames(meta_ct), ps_f)
+  
+  # Bray-Curtis distance
+  bray_ct <- phyloseq::distance(ps_ct, method = "bray")
+  
+  # run PERMANOVA
+  ad <- adonis2(bray_ct ~ host, data = meta_ct, permutations = 999)
+  
+  results[[ct]] <- ad
+}
+
+results
+
+#Host has significant effect in Asutria and Czech Republic but not Italy
+#Austria:
+#         Df SumOfSqs      R2      F Pr(>F)   
+#Model     1  2.89993 0.93568 145.47  0.002 **
+#Residual 10  0.19935 0.06432                 
+#Total    11  3.09928 1.00000 
+#Czech Republic: 
+#         Df SumOfSqs      R2      F Pr(>F)   
+#Model     1   1.6024 0.52454 11.033   0.01 **
+#Residual 10   1.4524 0.47546                 
+#Total    11   3.0548 1.00000 0 
+#Italy:
+#         Df SumOfSqs      R2      F Pr(>F)
+#Model     1  0.02192 0.00839 0.3385  0.948
+#Residual 40  2.59036 0.99161              
+#Total    41  2.61228 1.00000 
+
+
+
+####
+
+ps_simple <- phyloseq::phyloseq(
+  phyloseq::otu_table(ps_f),
+  phyloseq::sample_data(ps_f)
+)
+ps_pa <- transform_sample_counts(ps_simple, function(x) as.numeric(x > 0))
+jaccard <- phyloseq::distance(ps_pa, method = "jaccard")
+ord <- ordinate(ps_f, method = "PCoA", distance = jaccard)
+pcoa_df <- as.data.frame(ord$vectors[, 1:2])
+colnames(pcoa_df) <- c("PC1", "PC2")
+pcoa_df$Sample <- rownames(pcoa_df)
+meta_f$Sample <- rownames(meta_f)
+pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
+
+
+  ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  facet_wrap(~ country) +
+  scale_color_manual(values = c(
+    "hawthorn" = "#CC6666",
+    "apple" = "#66CC66"
+  )) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    strip.text = element_text(size = 16, face = "bold")
+  )
+
+
+####
+meta_f2 <- meta[meta$Field_Lab2 == "field" & meta$country != "Germany" & meta$country != "Italy", ]
+ps_f2 <- prune_samples(rownames(meta_f2), ps)
+ps_f_genus <- tax_glom(ps_f2, taxrank = "Genus")
+ps_f_genus_filtered <- filter_taxa(ps_f_genus, function(x) sum(x) > 0, TRUE)
+
+
+
+mat <- as(otu_table(ps_f_genus_filtered), "matrix")
+
+if (taxa_are_rows(ps_f_genus)) {
+  mat <- t(mat)
+}
+
+pa_mat <- (mat > 0) * 1
+
+
+# ----------------------------
+# 2. Metadata alignment
+# ----------------------------
+meta_mat <- meta_f[match(rownames(mat), rownames(meta_f)), , drop = FALSE]
+
+group <- meta_mat$host
+group_levels <- unique(group)
+
+
+# ----------------------------
+# 3. Fisher’s exact test per taxon
+# ----------------------------
+pvals <- apply(pa_mat, 2, function(x) {
+  tab <- table(x, group)
+
+  if (length(unique(x)) < 2) return(NA)
+
+  fisher.test(tab)$p.value
+})
+
+p_adj <- p.adjust(pvals, method = "BH")
+
+#Raw p-value for Wolbachia is 0.093, this is adjusted to 1 with BH when missclassification is fixed.
+pvals2
+#g__unclassified_Morganellaceae            g__Methylobacterium                   g__Moraxella                g__Sphingomonas 
+#                            NA                      0.3167702                      1.0000000                      0.4003231 
+#              g__Cutibacterium             g__Novosphingobium       g__Candidatus_Carsonella                   g__Wolbachia 
+#                     1.0000000                      1.0000000                      1.0000000                      0.0931677 
+#                 g__Rickettsia             g__Corynebacterium               g__Streptococcus         g__Buchnera_aphidicola 
+#                     1.0000000                      1.0000000                      0.4782609                      1.0000000 
+#             g__Bradyrhizobium                  g__Paracoccus  g__unclassified_Moraxellaceae 
+#                     1.0000000                      1.0000000                      1.0000000 
+
+# ----------------------------
+# 4. Keep only significant taxa
+# ----------------------------
+sig_taxa <- names(p_adj)[p_adj < 0.05 & !is.na(p_adj)]
+
+pa_sig <- pa_mat[, sig_taxa, drop = FALSE]
+
+
+# ----------------------------
+# 5. Prevalence + raw counts per group
+# ----------------------------
+prev_list <- list()
+count_list <- list()
+
+for (g in group_levels) {
+  sub <- pa_sig[group == g, , drop = FALSE]
+
+  prev_list[[g]] <- colMeans(sub)
+  count_list[[g]] <- colSums(sub)
+}
+
+
+# ----------------------------
+# 6. Taxonomy labels
+# ----------------------------
+tax <- as.data.frame(tax_table(ps_f_genus))
+
+tax_labels <- tax$Genus
+names(tax_labels) <- rownames(tax)
+
+
+# ----------------------------
+# 7. Build summary table (df2)
+# ----------------------------
+df2 <- data.frame(
+  Taxon = colnames(pa_sig),
+  Label = tax_labels[colnames(pa_sig)]
+)
+
+for (g in group_levels) {
+  df2[[paste0(g, "_prev")]] <- prev_list[[g]]
+  df2[[paste0(g, "_n")]]    <- count_list[[g]]
+}
+
+
+# ----------------------------
+# 8. Effect size
+# ----------------------------
+df2$diff <- df2[[paste0(group_levels[1], "_prev")]] -
+            df2[[paste0(group_levels[2], "_prev")]]
+
+
+# ----------------------------
+# 9. Order taxa by effect size
+# ----------------------------
+df2 <- df2[order(df2$diff, decreasing = TRUE), ]
+tax_levels <- df2$Label
+
+
+# ----------------------------
+# 10. Long format
+# ----------------------------
+library(tidyr)
+
+df2_prev_long <- pivot_longer(
+  df2,
+  cols = ends_with("_prev"),
+  names_to = "Group",
+  values_to = "Prevalence"
+)
+
+df2_count_long <- pivot_longer(
+  df2,
+  cols = ends_with("_n"),
+  names_to = "Group_n",
+  values_to = "Count"
+)
+
+df2_prev_long$Group <- gsub("_prev", "", df2_prev_long$Group)
+df2_count_long$Group_n <- gsub("_n", "", df2_count_long$Group_n)
+
+df2_long <- df2_prev_long
+df2_long$Count <- df2_count_long$Count
+
+
+# ----------------------------
+# 11. Clean labels
+# ----------------------------
+df2_long$Label[is.na(df2_long$Label)] <- df2_long$Taxon
+
+
+# ----------------------------
+# 12. Enforce ordering
+# ----------------------------
+df2_long$Label <- factor(df2_long$Label, levels = tax_levels)
+
+
+# ----------------------------
+# 13. Hide zero counts
+# ----------------------------
+df2_long$Count_label <- ifelse(df2_long$Count > 0, df2_long$Count, "")
+
+
+# ----------------------------
+# 14. Plot
+# ----------------------------
+library(ggplot2)
+
+ggplot(df2_long, aes(
+  x = Group,
+  y = Label,
+  size = Prevalence,
+  color = Group
+)) +
+  geom_point(alpha = 0.85) +
+  
+  geom_text(aes(label = Count_label),
+            size = 2,
+            color = "black") +
+  
+  scale_size(range = c(2, 10)) +
+  theme_classic(base_size = 14) +
+  labs(
+    x = NULL,
+    y = "Taxonomy (Genus)",
+    size = "Prevalence",
+    color = "Group",
+    title = "Significant taxa (FDR < 0.05)\nBubble size = prevalence, numbers = sample counts"
+  )
+
+####
+# --- Extract taxonomy and rename columns ---
+tax_tab <- as.data.frame(tax_table(ps_f_genus_filtered))
+
+tax_names <- tax_tab$Genus
+tax_names[is.na(tax_names) | tax_names == ""] <- "Unknown"
+tax_names <- make.unique(tax_names)
+
+mat_asv <- mat
+colnames(mat_asv) <- tax_names
+
+
+# --- Relative abundance ---
+mat_genus_rel <- sweep(mat_asv, 1, rowSums(mat_asv), "/")
+mat_genus_rel_log <- log10(mat_genus_rel + 1e-6)
+
+# --- Order samples by country, then host ---
+meta_mat <- meta[rownames(mat_genus_rel_log), ]
+
+ord <- order(meta_mat$country, meta_mat$host)
+
+mat_ordered <- mat_genus_rel_log[ord, ]
+meta_ordered <- meta_mat[ord, ]
+
+
+# --- Define colors: 0 = white, then blue → red ---
+# Avoid including 0 in gradient
+nonzero_vals <- mat_ordered[mat_ordered > 0]
+
+colors <- colorRampPalette(c("blue", "white", "red"))(99)
+
+# --- Row annotations ---
+annotation_row <- data.frame(
+  Country = meta_ordered$country,
+  Host = meta_ordered$host
+)
+
+rownames(annotation_row) <- rownames(mat_ordered)
+
+# --- Optional: gaps between countries ---
+gaps <- cumsum(table(meta_ordered$country))
+
+
+# --- Plot heatmap ---
+pheatmap(
+  mat_ordered,
+  color = colorRampPalette(c("white", "blue", "red"))(100),
+  breaks = seq(
+    min(mat_ordered, na.rm = TRUE),
+    max(mat_ordered, na.rm = TRUE),
+    length.out = 101
+  ),
+  cluster_rows = FALSE,
+  cluster_cols = TRUE,
+  annotation_row = annotation_row,
+  gaps_row = gaps,
+  border_color = "grey90"
+)
+####
+
+meta_f2 <- meta[meta$Field_Lab2 == "field" & meta$country != "Germany" & meta$country != "Italy", ]
+ps_f2 <- prune_samples(rownames(meta_f2), ps)
+
+ps_f_genus <- tax_glom(ps_f2, taxrank = "Genus")
+ps_f_genus_filtered <- filter_taxa(ps_f_genus, function(x) sum(x) > 0, TRUE)
+
+
+mat <- as(otu_table(ps_f_genus_filtered), "matrix")
+ 
+if (taxa_are_rows(ps_f_genus_filtered)) {
+     mat <- t(mat)
+ }
+
+meta_mat <- meta[rownames(mat), ]
+group <- meta_mat$host
+
+tax_tab <- as.data.frame(tax_table(ps_f_genus_filtered))
+tax_names <- tax_tab$Genus
+tax_names[is.na(tax_names) | tax_names == ""] <- "Unknown"
+tax_names <- make.unique(tax_names)
+colnames(mat) <- tax_names
+
+pa_mat <- (mat > 0) * 1
+
+pa_df <- as.data.frame(pa_mat)
+pa_df$Group <- group
+pa_df$Group <- as.factor(pa_df$Group)
+
+upset(
+  pa_df,
+  intersect = colnames(pa_df)[colnames(pa_df) != "Group"],
+  name = "ASV intersections",
+  sort_intersections_by = "degree",
+  base_annotations = list(
+    'Intersection size' = intersection_size(aes(fill = Group))
+  )
+)
+
+#statistical test per ASV (Fisher’s exact test)
+pvals <- apply(pa_mat, 2, function(x) {
+  tab <- table(x, group)
+  if (nrow(tab) < 2 || ncol(tab) < 2) return(NA)
+  fisher.test(tab)$p.value
+})
+p_adj <- p.adjust(pvals, method = "BH")
+
+sig_asvs <- names(p_adj)[which(p_adj < 0.05)]
+
+pa_sig <- pa_mat[, sig_asvs, drop = FALSE]
+pa_df <- as.data.frame(pa_sig)
+pa_df$Group <- group
+pa_df$Group <- as.factor(pa_df$Group)
+
+#prev <- colSums(pa_df) / nrow(pa_df)
+#pa_df <- pa_df[, prev > 0.1]   # present in >10% samples
+
+upset(
+  pa_df,
+  intersect = colnames(pa_df)[colnames(pa_df) != "Group"],
+  name = "ASV intersections",
+  sort_intersections_by = "degree",
+  base_annotations = list(
+    'Intersection size' = intersection_size(aes(fill = Group))
+  )
+)
+
+upset(
+  pa_df,
+  intersect = colnames(pa_df)[colnames(pa_df) != "Group"],
+  name = "ASV intersections",
+  base_annotations = list(
+    'Intersection size' = intersection_size(aes(fill = Group))
+  )
+)
+```
