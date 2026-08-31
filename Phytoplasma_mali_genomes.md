@@ -41,7 +41,7 @@
     3.3.2 [Multi-peak positions](#39)
   3.4 [Acquisition expriment samples - raw reads](#38)
     3.4.1 [QC of raw reads](#37)
-    
+
 # Sequencing  <a name="1"></a>
 ## Nanopore adaptive sampling <a name="2"></a>
 
@@ -2187,8 +2187,6 @@ The portion of "heterozygous" positions across all samples has dropped markedly 
 ####  Multi-peak positions <a name="39"></a>
 
 Inspection of the VCF file / BAM alignment files reveal that certain positions have mixed REF / ALT genotype assignment. This includes some positions in the higher coverage samples where there may be 70 reads matching the REF and 70 matching the ALT genotype in one position. In some cases the presence / abscence of multiple peaks appears to correlate with the Splitstree network group - although this is often obscured by low coverage in some samples. Unclear if this is due to multiple strains in a sample or duplications of regions in one strains genome.
-
-![Synteny Plot](figures/Screenshot_2026-08-31_174210.png)
 
 Extract mulit-peak regions and BLAST versus the whole genome to look for multiple hits:
 
