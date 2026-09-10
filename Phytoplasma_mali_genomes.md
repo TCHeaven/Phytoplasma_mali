@@ -3,11 +3,19 @@
 ## Contents
 1. [Sequencing](#1)
   1.1 [Nanopore adaptive sampling](#2)
+    1.1.1 [Pant samples](#41)
+    1.1.2 [Picta samples](#42)
   1.2 [Post-sequencing analysis](#4)
-    1.2.1 [Basecalling](#5)
-    1.2.2 [Taxonomic classication of reads](#6)
-      1.2.2.1 [BLAST](#7)
-      1.2.2.2 [Kraken2](#8)
+  1.3 [45UP](41)
+    1.3.1 [Basecalling](#5)
+    1.3.2 [Taxonomic classication of reads](#6)
+      1.3.2.1 [BLAST](#7)
+      1.3.2.2 [Kraken2](#8)
+  1.4 [19A](42)
+    1.3.1 [Basecalling](#43)
+    1.3.2 [Taxonomic classication of reads](#44)
+      1.3.2.1 [BLAST](#45)
+      1.3.2.2 [Kraken2](#46)
 2. [Comparison of Phytoplasma mali genomes](#3)
   2.1 [Subtyping primers](#10)
     2.1.1 [rpl22 - qPCR primer](#19)
@@ -46,6 +54,8 @@
 ## Nanopore adaptive sampling <a name="2"></a>
 
 In adaptive sampling a nanopore device basecalls the first ~400bp of a DNA strand in real time as it passes through a pore, this is referenced against a database and the voltage over the pore may be reversed to eject the nucleotide strand. Therea re two versions of adaptive sampling: enrichment and depletion. In enrichment a .fasta file is provided of target sequences, when a nucleotide strand is matched to this sequencing continues, otherwise off-target nucleotides are rejected after ~400bp. In depletions a .fasta file is provided of off-target sequences (eg. a host), when a nucleotide strand is matched to this it is ejected, otherwise sequencing continues. A .bed file can be provided along with the .fasta file which specifies particular regions within the .fasta as on-target (enrichment) or off-target (depletion). It is recommended to provide a .bed file and .fasta with both on- and off-target seqeunces to prevent 'forced' matches. Nanopore recommends <125Mb for the .fasta file.
+
+### Plant samples <a name="41"></a>
 
 We will prepare these files for sequencing of Phytoplasma mali - and not the host apple genome. We plan to use depletion mode primarily but will also test enrichment. 
 ```bash
@@ -169,8 +179,54 @@ awk '/^>/{if(s){print n"\t0\t"s} n=substr($0,2); s=0; next} {s+=length($0)} END{
 ```
 In the event the sequencing ran to completion with the FULL.fna dataset and so there was no need for the reduced datasets. In future we will exclude the high copy gene regions as these are already covered by the full apple genome.
 
+```bash
+```bash
+#Final_plant - contains the full apple genome + mitochondrial genome + chloroplast genome + all existant phytoplasma mali genomes = 633Mb total
+cat genome_renamed.fna apple-chloroplast-NC_061549.1.fna apple-mitochondria-NC_018554.1.fna Existing_phyto.fna > FINAL_plant.fna 
+awk '/^>/ {print $1; next} {print}' FINAL_plant.fna   > FULL2.fna && mv FULL2.fna FINAL_plant.fna 
+awk '/^>/{if(s){print n"\t0\t"s} n=substr($0,2); s=0; next} {s+=length($0)} END{print n"\t0\t"s}' FINAL_plant.fna  > FINAL_plant_depletion.bed #remove phyto headers:
+#>Phytoplasma_AT1-13-ET_Medaka
+#>scaffold4xsize87123
+#>scaffold1xsize248195
+#>scaffold2xsize196817
+#>scaffold3xsize93548
+#>scaffold2xsize173667
+#>scaffold1xsize287023
+#>scaffold5xsize11861
+#>scaffold3xsize106235
+#>Phytoplasma_mali_Cmel17_Final
+#>NC_011047.1 Candidatus Phytoplasma mali, complete sequence
+
+awk '/^>/{if(s){print n"\t0\t"s} n=substr($0,2); s=0; next} {s+=length($0)} END{print n"\t0\t"s}' FINAL_plant.fna  > FINAL_plant_enrichment.bed #remove phyto headers
+
+cat genome_renamed.fna apple-chloroplast-NC_061549.1.fna apple-mitochondria-NC_018554.1.fna > Apple_only.fna
+cat genome_renamed.fna > Apple_nuclear_only.fna
+```
+### Picta samples <a name="42"></a>
+
+We will prepare these files for sequencing of Phytoplasma mali - and not the host Cacopsylla picta. We plan to use depletion mode primarily but will also test enrichment. Previous experience with plant samples suggests that reference files can be large.
+
+Prepare files:
+```bash
+
+```
+
 ## Post-sequencing analysis  <a name="4"></a>
-## Sample 45UP
+
+We have received DNA sampels extracted by collaborators in Luxumbourg from phytoplasma infected Plants:
+
+Round 1:
+![Round 1 plant-phytoplasma DNA](figures/Screenshot_2026-09-08_153749.png)
+Round 2:
+![Round 2 plant-phytoplasma DNA](figures/Screenshot_2026-09-08_153503.png)
+
+As well as from phytoplasma infected Psyllids:
+![Round 2 psyllid-phytoplasma DNA](figures/Screenshot_2026-09-08_152957.png)
+
+## Sample 45UP  <a name="41"></a>
+
+Sample 45UP was selected as the first sample to test adaptive sampling sequencing approach, this sample originates from Germany, which is as yet unrepresented in our dataset, and has the highest concentration of DNA (both phytoplasma and host).
+
 
 Only ~160 pores were active during the 45UP run therefore we expect few reads. - this also meant that only depletion mode adaptive sampling could be trialled
 
@@ -319,6 +375,365 @@ sort -t$'\t' -k4,4nr /data/users/theaven/phytolasma/raw_data/minion/45UP/kraken2
 ![Kraken2 read classifications](figures/45up-kraken-pavian.png)
 
 Most of the long reads are classified to Malus, and the longest phytoplasma read is only 5,283bp, in line with the BLAST results, only ~23 reads are classified to phytoplasma (Mollicutes).
+
+## Sample 19A  <a name="42"></a>
+
+Sample 19A was selected for the second attempt at adaptive sampling sequencing. This is the only accesion/strain for which we have both the plant and psyllid samples. The plant sample also has the lowest threshold cycle for dection in qPCR - performed in Luxumbourg - and is therefore beleived to have high Phytoplasma DNA concentration. 10ul of the DNA extraction were used for the library prep and subsequent sequencing. The Ligation sequencing DNA V14 (SQK-LSK114) protocol from ONT was followed.
+
+### Basecalling  <a name="43"></a>
+
+Sequencing was run with fast basecalling for the purposes of adaptive sampling, raw .POD5 files were output which we will now use for bsaecalling with the highest accuracy settings with dorado. The barcode 03 was used even though we are only sequencing one sample in order to utilise the available rapid ligations adapter library kit.
+
+The library was run first in depletion mode including a .BED file, then secondly in enrichment mode including a .BED file, then in enrichment mode with .FASTA reference only, then in depletion mode with .FASTA only. Shortly after starting sequencing with the final settings (depletion mode with .FASTA only) the run was paused and the library recovered from the flow cell which was then washed, following which the library was reloaded and the sequencing run restarted.
+
+```bash
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/1 #(depletion with .BED)
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/2 #(enrichment with .BED)
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/3 #(enrichment w/o .BED, .FASTA only)
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/4 #(depletion w/o .BED, .FASTA only)
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/all
+
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/20260902-TOMH-CaPMali-19a-1/19a/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/1/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/20260902-TOMH-CaPMali-19a-2/19a/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/2/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/20260902-TOMH-CaPMali-19a-3/19a/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/3/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/20260902-TOMH-CaPMali-19a-4/19a/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/4/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/20260902-TOMH-CaPMali-19a-1/19a/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/all/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/20260902-TOMH-CaPMali-19a-2/19a/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/all/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/20260902-TOMH-CaPMali-19a-3/19a/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/all/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/20260902-TOMH-CaPMali-19a-4/19a/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/all/.
+
+screen -S dorado
+for Dir in $(ls -d /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*); do
+  Task=Dorado
+  InDir="$Dir"
+  OutDir=$Dir/basecalls
+  OutFmt=fastq
+  Barcode=NA
+  Modification_model=NA
+  ExpectedOutput="$OutDir"/out.fastq
+
+  Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+  while [ "$Jobs" -gt 1 ]; do
+    sleep 600s
+    printf "."
+    Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+  done
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_dorado.sh "$InDir" "$OutDir" "$OutFmt" "$Barcode" "$Modification_model")
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done
+```
+```bash
+module load seqtk/1.4-gcc-12.3.0
+conda activate seqkit
+
+for file in /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*/basecalls/SAMPLE.pass.fq.gz; do
+seqtk seq -a "$file" | awk '/^>/{split($0,a," "); print ">"a[1]; next}{print}' > "${file%.fq.gz}.fasta"
+
+seqkit seq -m 1000 "${file%.fq.gz}.fasta" > "${file%.fq.gz}_long.fasta"
+
+seqkit seq -m 500 "${file%.fq.gz}.fasta" > "${file%.fq.gz}_med.fasta"
+
+echo "${file%.fq.gz}_long.fasta"
+grep '>' "${file%.fq.gz}_long.fasta" | wc -l
+done
+```
+depletion with .BED = 1,335,032 reads >1,000bp
+enrichment with .BED = 414 reads >1,000bp
+enrichment w/o .BED, .FASTA only = 18,572 reads >1,000bp
+depletion w/o .BED, .FASTA only = 92,847  reads >1,000bp
+
+Depletion mode produces many reads >1,000bp, however these are clustered around 3.5kb in length. The DNA Control Sample (DCS) is a 3.6 kb standard amplicon mapping the 3' end of the Lambda genome. It therefore appears that library prep and sequencing has worked but that the sample only contains the DCS.
+
+![Depletion with .BED](figures/Picture1.jpg)
+
+### Taxonomic classication of reads  <a name="44"></a>
+#### BLAST  <a name="45"></a>
+
+Reads were taxonomically classificed with BLAST to determine the proportion of on-target Phytoplasma mali reads
+```bash
+for reads in $(find /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*/basecalls -name 'SAMPLE.pass.fasta' -type f); do
+  Task=blast
+  Database=/data/blobtoolkit/nt/nt
+  Max_target=1
+  OutPrefix=$(dirname $reads | rev | cut -d '/' -f1 | rev)
+  OutDir="$(dirname $reads)"/"$Task"
+  mkdir -p $OutDir
+  ExpectedOutput="$OutDir"/${OutPrefix}.vs."$(basename $Database)".mts"$Max_target".hsp1.1e25.megablast.out
+
+  Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+  while [ "$Jobs" -gt 9 ]; do
+    sleep 5s
+    printf "."
+    Jobs=$(squeue -h -u theaven -n "$Task" | wc -l)
+  done
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_blastn.sh "$reads" "$Database" "$OutDir" "$OutPrefix" "$Max_target")
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done
+
+#Inspect BLAST  output in MEGAN6 - does not work giving 'too many errors error'
+tail -n +2 /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts1.hsp1.1e25.megablast.out > noheader.tsv
+awk 'NR>1 {print $1"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$12"\t"$13"\t"$14"\t"$15"\t"$2}' noheader.tsv > /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts1.hsp1.1e25.megablast.megan.out
+sed 's/ \+/\t/g' /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts1.hsp1.1e25.megablast.megan.out > /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts1.hsp1.1e25.megablast.megan2.tab
+sed -i 's/^>//' /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts1.hsp1.1e25.megablast.megan2.tab
+
+tail -n +2 /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts10.hsp1.1e25.megablast.out > noheader.tsv
+awk 'NR>1 {print $1"\t"$5"\t"$6"\t"$7"\t"$8"\t"$9"\t"$10"\t"$11"\t"$12"\t"$13"\t"$14"\t"$15"\t"$2}' noheader.tsv > /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts10.hsp1.1e25.megablast.megan.out
+sed 's/ \+/\t/g' /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts10.hsp1.1e25.megablast.megan.out > /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts10.hsp1.1e25.megablast.megan2.tab
+sed -i 's/^>//' /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts10.hsp1.1e25.megablast.megan2.tab
+cut -f7 /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts10.hsp1.1e25.megablast.megan.out | head
+
+#Investigate BLAST output
+awk 'NR>1 {print $2}' /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts10.hsp1.1e25.megablast.out | sort -u
+awk 'NR>1 && $2!="3750" && $2!="3749" {print $1}' /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts10.hsp1.1e25.megablast.out | sort | uniq | wc -l #355,661 not apple
+awk 'NR>1 && $2!="3750" && $2!="3749" {print $1}' /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts1.hsp1.1e25.megablast.out | sort | uniq | wc -l #97,846 not apple
+awk 'NR>1 && $2==37692 {print $1 "\t" $2}' /data/users/theaven/phytolasma/raw_data/minion/45UP/basecalls/blast/basecalls.vs.nt.mts10.hsp1.1e25.megablast.out | sort | uniq | wc -l #21 reads with Candidatus phytoplasma mali assignment
+```
+Whilst 97,846 reads had a best hit other than apple only 21 had a best hit to phytoplasma mali 
+
+#### Kraken2  <a name="46"></a>
+
+Reads were taxonomically classificed with kraken2 to determine the proportion of on-target Phytoplasma mali reads
+```bash
+screen -S kraken2
+srun -p bioagri -J kraken2 --nodes=1 --ntasks=1 --cpus-per-task=64 --mem 320G --pty bash
+module load anaconda3
+conda activate kraken2
+
+for reads in $(find /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*/basecalls -name 'SAMPLE.pass_long.fasta' -type f); do 
+Task=Kraken2
+OutDir="$(dirname $reads)"/"$Task"/long
+mkdir -p "$OutDir"
+kraken2 \
+--threads 64 \
+--db /data/databases/kraken2/2025-02-04/k2_core_nt_20250609 \
+--output "$OutDir"/output_nt.txt \
+--unclassified-out "$OutDir"/unclassified_nt.txt \
+--classified-out "$OutDir"/classified_nt.txt \
+--report "$OutDir"/report_nt.txt \
+--use-names \
+"$reads"
+done
+
+#depletion with .BED =   1,320,163 sequences classified (98.89%), 14,869 sequences unclassified (1.11%)
+
+#enrichment with .BED =   413 sequences classified (99.76%), 1 sequences unclassified (0.24%)
+
+#enrichment w/o .BED, .FASTA only =   18,524 sequences classified (99.74%), 48 sequences unclassified (0.26%)
+
+#depletion w/o .BED, .FASTA only =   91,954 sequences classified (99.04%), 893 sequences unclassified (0.96%)
+
+for reads in $(find /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*/basecalls -name 'SAMPLE.pass_med.fasta' -type f); do 
+Task=Kraken2
+OutDir="$(dirname $reads)"/"$Task"/med
+mkdir -p "$OutDir"
+kraken2 \
+--threads 64 \
+--db /data/databases/kraken2/2025-02-04/k2_core_nt_20250609 \
+--output "$OutDir"/output_nt.txt \
+--unclassified-out "$OutDir"/unclassified_nt.txt \
+--classified-out "$OutDir"/classified_nt.txt \
+--report "$OutDir"/report_nt.txt \
+--use-names \
+"$reads"
+done
+
+#depletion with .BED =   2,682,533 sequences classified (95.33%), 131,527 sequences unclassified (4.67%)
+
+#enrichment with .BED =   75,321 sequences classified (95.13%), 3,857 sequences unclassified (4.87%)
+
+#enrichment w/o .BED, .FASTA only =   675,324 sequences classified (95.20%), 34,036 sequences unclassified (4.80%)
+
+#depletion w/o .BED, .FASTA only =   219,749 sequences classified (95.94%), 9,305 sequences unclassified (4.06%)
+
+for reads in $(find /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*/basecalls -name 'SAMPLE.pass.fasta' -type f); do 
+Task=Kraken2
+OutDir="$(dirname $reads)"/"$Task"/all
+mkdir -p "$OutDir"
+kraken2 \
+--threads 64 \
+--db /data/databases/kraken2/2025-02-04/k2_core_nt_20250609 \
+--output "$OutDir"/output_nt.txt \
+--unclassified-out "$OutDir"/unclassified_nt.txt \
+--classified-out "$OutDir"/classified_nt.txt \
+--report "$OutDir"/report_nt.txt \
+--use-names \
+"$reads"
+done
+
+#depletion with .BED = 9,595,841 sequences classified (94.05%), 607,087 sequences unclassified (5.95%)
+
+#enrichment with .BED = 498,846 sequences classified (90.92%), 49,808 sequences unclassified (9.08%)
+
+#enrichment w/o .BED, .FASTA only =  6,099,246 sequences classified (90.71%), 624,759 sequences unclassified (9.29%)
+
+#depletion w/o .BED, .FASTA only = 1,029,593 sequences classified (87.59%), 145,878 sequences unclassified (12.41%)
+
+
+wc -l /data/users/theaven/phytolasma/raw_data/minion/45UP/kraken2/output_nt.txt #370376
+sort -t$'\t' -k4,4nr /data/users/theaven/phytolasma/raw_data/minion/45UP/kraken2/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/45UP/kraken2/output_nt_by_length.txt #long reads are Malus, longest phytoplasma read is 5,283, and there are only ~23 of them
+```
+Looking at the longer reads, >1,000bp in length, accounting for the number of active pores, similar numbers of phytoplasma reads are produced when enrichment settings are used and when depletion mode is used. In both enrichment and depletion mode some apple reads are retained. There are also psyllid reads retained in the sample. 
+
+Depletion mode with .BED file, reads >1,000bp:
+![Kraken2 long read depletion .bed classifications](figures/Screenshot_2026-09-10_153952.png)
+
+In depletion mode Phytoplasma drops out of the top ten species classified, despite only apple and phytoplasma genomes being included in the reference files.
+
+![Kraken2 long read classifications](figures/long.png)
+
+Looking at all reads, including those shorter than 1,000bp that were rejected during adaptive sequencing, there are phytoplasma reads lost with all settings. Phytoplasma reads are a fraction of the number of apple reads (there are ~ 300x apple reads vs phytoplasma reads), there are also fewer phytoplasma reads than reads for other bacterial taxa. 
+
+For depletion mode with a .BED only 4.14% of apple reads were retained, and 27.05% of phytoplasma reads were retained and >1,000bp. For depetion mode with no .BED only 3.5% of apple reads were retained, but only 12% of phytoplasma reads were retained and >1,000bp.
+
+For enrichment mode with a .BED file only 0.02% of apple reads were retained. 25.6% of phytoplasma reads were >1,000bp and retained. Without a .BED file in enrichment mode 0.27% of apple reads were retained and 23.3% of phytoplasma reads were >1,000bp and retained.
+
+Depletion mode with .BED file, all reads:
+![Kraken2 all read depletion .bed classifications](figures/Screenshot_2026-09-10_154127.png)
+
+Enrichment or depletion mode with a .BED file therefore appears to perform the best; however even with these setting ~75% of reads classified as phytoplasma by Kraken2 are rejected from sequencing (~1/3 of 'rejected' reads are 500-1,000 bp). 
+
+We checked for similarity between phytoplasma and apple, I do not understand how this pattern is occurring.
+
+```bash
+grep 'Candidatus Phytoplasma mali' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/1/basecalls/Kraken2/long/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/1/basecalls/Kraken2/long/phyto_output_nt.txt #6,222
+
+grep 'Candidatus Phytoplasma mali' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/2/basecalls/Kraken2/long/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/2/basecalls/Kraken2/long/phyto_output_nt.txt #308
+
+grep 'Candidatus Phytoplasma mali' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/3/basecalls/Kraken2/long/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/3/basecalls/Kraken2/long/phyto_output_nt.txt #3,539
+
+grep 'Candidatus Phytoplasma mali' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/4/basecalls/Kraken2/long/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/4/basecalls/Kraken2/long/phyto_output_nt.txt #395
+
+cat /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*/basecalls/Kraken2/long/phyto_output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A/long_phyto_output_nt.txt
+
+awk -F'\t' '{sum += $4; n++} END {print sum/n}' /data/users/theaven/phytolasma/raw_data/minion/19A/long_phyto_output_nt.txt #4,296
+
+awk -F'\t' 'NR==1 {max=$4} $4>max {max=$4} END {print max}' /data/users/theaven/phytolasma/raw_data/minion/19A/long_phyto_output_nt.txt #63,998
+
+awk -F'\t' '{sum += $4; n++} END {print sum/n}' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/1/basecalls/Kraken2/long/output_nt.txt #4,262
+awk -F'\t' '{sum += $4; n++} END {print sum/n}' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/2/basecalls/Kraken2/long/output_nt.txt #4,443
+awk -F'\t' '{sum += $4; n++} END {print sum/n}' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/3/basecalls/Kraken2/long/output_nt.txt #4,111
+awk -F'\t' '{sum += $4; n++} END {print sum/n}' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/4/basecalls/Kraken2/long/output_nt.txt #5,784
+
+awk -F'\t' 'NR==1 {max=$4} $4>max {max=$4} END {print max}' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/1/basecalls/Kraken2/long/output_nt.txt #107,137
+awk -F'\t' 'NR==1 {max=$4} $4>max {max=$4} END {print max}' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/2/basecalls/Kraken2/long/output_nt.txt #41,069
+awk -F'\t' 'NR==1 {max=$4} $4>max {max=$4} END {print max}' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/3/basecalls/Kraken2/long/output_nt.txt #46,456
+awk -F'\t' 'NR==1 {max=$4} $4>max {max=$4} END {print max}' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/4/basecalls/Kraken2/long/output_nt.txt #151,832
+
+grep 'Diaphorina citri\|Clytie syriaca' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*/basecalls/Kraken2/long/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A/psyllid_output_nt.txt
+
+cat /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*/basecalls/Kraken2/long/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A/long_output_nt.txt
+sort -t$'\t' -k4,4nr /data/users/theaven/phytolasma/raw_data/minion/19A/long_output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A/long_output_nt_sorted.txt
+
+cat /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*/basecalls/Kraken2/all/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A/all_output_nt.txt
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python
+```
+There are 10,464 phytoplasma reads >1,000bp in total, average length 4,296, with the longest 63,998bp.
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Input file
+file = "/data/users/theaven/phytolasma/raw_data/minion/19A/all_output_nt.txt"
+#file = "/data/users/theaven/phytolasma/raw_data/minion/19A/pod5/1/basecalls/Kraken2/all/output_nt.txt"
+#file = "/data/users/theaven/phytolasma/raw_data/minion/19A/pod5/2/basecalls/Kraken2/all/output_nt.txt"
+#file = "/data/users/theaven/phytolasma/raw_data/minion/19A/pod5/3/basecalls/Kraken2/all/output_nt.txt"
+#file = "/data/users/theaven/phytolasma/raw_data/minion/19A/pod5/4/basecalls/Kraken2/all/output_nt.txt"
+
+# Read TSV; no header assumed
+df = pd.read_csv(file, sep="\t", header=None)
+
+# Filter for Candidatus Phytoplasma mali
+target = "Candidatus Phytoplasma mali (taxid 37692)"
+#target = "Malus domestica (taxid 3750)"
+values = pd.to_numeric(
+    df.loc[df[2] == target, 3],
+    errors="coerce"
+).dropna()
+
+# Define bins: 0-1000 in steps of 10, then 10000-50000 in steps of 1000
+bins = list(range(0, 1001, 10)) + list(range(10000, 50001, 1000))
+
+# Count values in each bin
+counts, edges = pd.cut(
+    values,
+    bins=bins,
+    right=False,
+    include_lowest=True
+).value_counts().sort_index().values, pd.cut(
+    values,
+    bins=bins,
+    right=False,
+    include_lowest=True
+).value_counts().sort_index().index
+
+# Plot
+plt.figure(figsize=(16, 6))
+plt.bar(range(len(counts)), counts, width=1)
+
+plt.xticks(
+    range(len(counts)),
+    [str(int(interval.left)) for interval in edges],
+    rotation=90
+)
+
+plt.xlabel("Column 4 value")
+plt.ylabel("Number of reads")
+plt.title("Candidatus Phytoplasma mali (taxid 37692)")
+#plt.title("Malus domestica (taxid 3750)")
+plt.tight_layout()
+
+plt.savefig("phytoplasma_mali_distribution_all.png", dpi=300, bbox_inches="tight")
+#plt.savefig("Malus_domestica_distribution_all.png", dpi=300, bbox_inches="tight")
+#plt.savefig("phytoplasma_mali_distribution1.png", dpi=300, bbox_inches="tight")
+#plt.savefig("phytoplasma_mali_distribution2.png", dpi=300, bbox_inches="tight")
+#plt.savefig("phytoplasma_mali_distribution3.png", dpi=300, bbox_inches="tight")
+#plt.savefig("phytoplasma_mali_distribution4.png", dpi=300, bbox_inches="tight")
+```
+
+Looking at the distribution of read lengths for phytoplasma and apple - which we know is being removed by adaptive sampling - the peak in read length for apple is aorund 400bp, as expected. The peak read length for phytoplasma is shorter than this, it is therefore possible that phytoplasma DNA is just very fragmented and short.
+
+![Distribution of read lengths for phytoplasma and apple](figures/distro.png)
+
+Cross check kraken assigned phytoplasma reads to adaptive sampling decisions.
+```bash
+grep -h 'Candidatus Phytoplasma mali' /data/users/theaven/phytolasma/raw_data/minion/19A/pod5/*/basecalls/Kraken2/all/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A/kraken_phyto_output_nt.txt #42,679
+
+for file in /data/users/theaven/phytolasma/raw_data/minion/19A/20260902-TOMH-CaPMali-19a-*/19a/*/adaptive_sampling/AS_decisions_*.csv; do
+~/git_repos/Scripts/unibz/count_adaptive_decisions.sh \
+    /data/users/theaven/phytolasma/raw_data/minion/19A/kraken_phyto_output_nt.txt \
+    "$file"
+done
+
+#Depletion with .BED:
+#unblock: 17
+#sequence: 16898
+
+#Enrichment with .BED:
+#unblock: 18
+#sequence: 885
+
+#Enrichment w/o .BED:
+#unblock: 207
+#sequence: 11046
+
+#Depletion w/o .BED:
+#unblock: 30
+#sequence: 1560
+```
+
+Cross check confirms that adaptive sampling is not ejecting phytoplasma sequences. Phytoplasma reads are few and are typically short, but this is the same across all adaptive sampling settings, minknow truncates to plot in enrichment as there is no DCS peak.
 
 # Comparison of Phytoplasma mali genomes  <a name="3"></a>
 
@@ -2237,6 +2652,40 @@ done
 
 ![Multipeak BLAST](figures/Screenshot_2026-08-31_172559.png)
 
+***Clusters of multi-peak positions***
+
+```bash
+gnl|Prokka|MDPFDBLG_1   prokka  gene    42209   44011   .       -       .       ID=MDPFDBLG_00034_gene;Name=ftsH_2;gene=ftsH_2;locus_tag=MDPFDBLG_00034
+gnl|Prokka|MDPFDBLG_1   Prodigal:002006 CDS     42209   44011   .       -       0       ID=MDPFDBLG_00034;Parent=MDPFDBLG_00034_gene;eC_number=3.4.24.-;Name=ftsH_2;gene=ftsH_2;inference=ab initio prediction:Prodigal:002006,protein motif:HAMAP:MF_01458;locus_tag=MDPFDBLG_00034;product=ATP-dependent zinc metalloprotease FtsH;protein_id=gnl|Prokka|MDPFDBLG_00034
+
+
+gnl|Prokka|MDPFDBLG_1   prokka  gene    114090  117662  .       +       .       ID=MDPFDBLG_00087_gene;locus_tag=MDPFDBLG_00087
+gnl|Prokka|MDPFDBLG_1   Prodigal:002006 CDS     114090  117662  .       +       0       ID=MDPFDBLG_00087;Parent=MDPFDBLG_00087_gene;inference=ab initio prediction:Prodigal:002006;locus_tag=MDPFDBLG_00087;product=hypothetical protein;protein_id=gnl|Prokka|MDPFDBLG_00087
+
+
+apptainer exec  --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python3 ~/git_repos/Scripts/NBI/seq_get.py --id_file /data/users/theaven/phytolasma/temp_id.txt --input  /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.ffn --output  /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/query_seqs.fa
+apptainer exec  --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python3 ~/git_repos/Scripts/NBI/seq_get.py --id_file /data/users/theaven/phytolasma/temp_id.txt --input  /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.faa --output  /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/query_seqs.faa
+
+for genome in AT2-62B.fasta AT1-AO-11_ET.fasta AT2_Cmel17.fasta GCF_000026205.1_Phytoplasma_mali.fasta AT1-13_ET.fasta; do
+blastn -query /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/query_seqs.fa -subject "$genome"  \
+  -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore" >> blast.out
+done
+
+#From orthofinder
+grep 'Orthogroup\|MDPFDBLG_00087\|MDPFDBLG_00034' /data/users/theaven/phytolasma/synteny/genespace/orthofinder/Results_Jul20/Orthogroups/Orthogroups.tsv
+#Orthogroup      AT1_13_ET       AT1_AO_11_ET    AT2_62B AT2_Cmel17      GCF_000026205
+#OG0000001       CMPKMHDA_00013, CMPKMHDA_00268, CMPKMHDA_00438, CMPKMHDA_00445, CMPKMHDA_00455  IIFFGGNB_00257, IIFFGGNB_00400, IIFFGGNB_00431, IIFFGGNB_00434, IIFFGGNB_00458, IIFFGGNB_00468      PDJFFPGO_00007, PDJFFPGO_00327, PDJFFPGO_00531, PDJFFPGO_00541  IEBBCGBO_00065, IEBBCGBO_00090, IEBBCGBO_00347, IEBBCGBO_00517, IEBBCGBO_00524, IEBBCGBO_00534      MDPFDBLG_00034, MDPFDBLG_00293, MDPFDBLG_00500, MDPFDBLG_00508
+#OG0000098       CMPKMHDA_00061  IIFFGGNB_00042  PDJFFPGO_00058  IEBBCGBO_00138  MDPFDBLG_00087
+
+for file in /data/users/theaven/phytolasma/*/*.ffn; do
+apptainer exec  --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python3 ~/git_repos/Scripts/NBI/seq_get.py --id_file /data/users/theaven/phytolasma/OG0000001_id.txt --input "$file" --output temp.fa && cat temp.fa >> /data/users/theaven/phytolasma/OG0000001_seqs.fa
+done
+
+for file in /data/users/theaven/phytolasma/*/*.ffn; do
+apptainer exec  --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python3 ~/git_repos/Scripts/NBI/seq_get.py --id_file /data/users/theaven/phytolasma/OG0000098_id.txt --input "$file" --output temp.fa && cat temp.fa >> /data/users/theaven/phytolasma/OG0000098_seqs.fa
+done
+```
+Orthogroup sequences were investigated in Jalview
 
 ###  Acquisition expriment samples - raw reads <a name="38"></a>
 
