@@ -2,9 +2,9 @@
 
 ## Contents
 1. [Sequencing](#1)<br>
-  1.1 [Nanopore adaptive sampling](#2)<br>
-    1.1.1 [Pant samples](#41)<br>
-    1.1.2 [Picta samples](#42)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;1.1 [Nanopore adaptive sampling](#2)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.1 [Pant samples](#41)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.2 [Picta samples](#42)<br>
   1.2 [Post-sequencing analysis](#4)<br>
   1.3 [45UP](41)<br>
     1.3.1 [Basecalling](#5)<br>
