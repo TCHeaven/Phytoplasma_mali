@@ -1,54 +1,54 @@
 # Sequencing, Assembly, and analysis of Phytoplasma mali genomes
 
 ## Contents
-1. [Sequencing](#1)
-  1.1 [Nanopore adaptive sampling](#2)
-    1.1.1 [Pant samples](#41)
-    1.1.2 [Picta samples](#42)
-  1.2 [Post-sequencing analysis](#4)
-  1.3 [45UP](41)
-    1.3.1 [Basecalling](#5)
-    1.3.2 [Taxonomic classication of reads](#6)
-      1.3.2.1 [BLAST](#7)
-      1.3.2.2 [Kraken2](#8)
-  1.4 [19A](42)
-    1.3.1 [Basecalling](#43)
-    1.3.2 [Taxonomic classication of reads](#44)
-      1.3.2.1 [BLAST](#45)
-      1.3.2.2 [Kraken2](#46)
-2. [Comparison of Phytoplasma mali genomes](#3)
-  2.1 [Subtyping primers](#10)
-    2.1.1 [rpl22 - qPCR primer](#19)
-    2.1.2 [AP13/10 - AFLP primers](#20)
-    2.1.3 [AP5/4 - AFLP primers](#21)
-    2.1.4 [AP8/10 - AFLP primers](#22)
-  2.2 [k-mer based similarity](#23)
-    2.2.1 [Sourmash](#11)
-  2.3 [Whole genome alignment](#12)
-    2.3.1 [Pairwise alignment](#24)
-    2.3.2 [Cactus](#15)
-  2.4 [Pangenome](#14)
-    2.4.1 [Cactus](#16)
-    2.4.2 [Investigate variation in the pangenome](#32)
-    2.4.3 [Investigate acessory regions in the pangenome](#40)
-  2.5 [Gene content](#13)
-    2.5.1 [BUSCO](#9)
-    2.5.2 [PGAP](#17)
-    2.5.3 [Prokka](#18)
-    2.5.4 [Plot synteny](#33)
-      2.5.4.1 [Genespace](#34)
-      2.5.4.2 [MCSCANX](#35)
-    2.5.5 [SNPEff](#25)
-3. [Illumina data - from acquisition experiment samples](#26)
-  3.1 [Subtyping primers](#36)
-  3.2 [Assess variants](#29)
-    3.2.1 [SNPEff](#27)
-    3.2.2 [Splitstree](#28)
-  3.3 [Investigate multiple strains](#30)
-    3.3.1 [Identify fixed positions](#31)
-    3.3.2 [Multi-peak positions](#39)
-  3.4 [Acquisition expriment samples - raw reads](#38)
-    3.4.1 [QC of raw reads](#37)
+1. [Sequencing](#1)<br>
+  - 1.1 [Nanopore adaptive sampling](#2)<br>
+    - 1.1.1 [Pant samples](#41)<br>
+    - 1.1.2 [Picta samples](#42)<br>
+  - 1.2 [Post-sequencing analysis](#4)<br>
+  - 1.3 [45UP](41)<br>
+    - 1.3.1 [Basecalling](#5)<br>
+    - 1.3.2 [Taxonomic classication of reads](#6)<br>
+      - 1.3.2.1 [BLAST](#7)<br>
+      - 1.3.2.2 [Kraken2](#8)<br>
+  - 1.4 [19A](42)<br>
+    - 1.3.1 [Basecalling](#43)<br>
+    - 1.3.2 [Taxonomic classication of reads](#44)<br>
+      - 1.3.2.1 [BLAST](#45)<br>
+      - 1.3.2.2 [Kraken2](#46)<br>
+2. [Comparison of Phytoplasma mali genomes](#3)<br>
+  - 2.1 [Subtyping primers](#10)<br>
+    - 2.1.1 [rpl22 - qPCR primer](#19)<br>
+    - 2.1.2 [AP13/10 - AFLP primers](#20)<br>
+    - 2.1.3 [AP5/4 - AFLP primers](#21)<br>
+    - 2.1.4 [AP8/10 - AFLP primers](#22)<br>
+  - 2.2 [k-mer based similarity](#23)<br>
+    - 2.2.1 [Sourmash](#11)<br>
+  - 2.3 [Whole genome alignment](#12)<br>
+    - 2.3.1 [Pairwise alignment](#24)<br>
+    - 2.3.2 [Cactus](#15)<br>
+  - 2.4 [Pangenome](#14)<br>
+    - 2.4.1 [Cactus](#16)<br>
+    - 2.4.2 [Investigate variation in the pangenome](#32)<br>
+    - 2.4.3 [Investigate acessory regions in the pangenome](#40)<br>
+  - 2.5 [Gene content](#13)<br>
+    - 2.5.1 [BUSCO](#9)<br>
+    - 2.5.2 [PGAP](#17)<br>
+    - 2.5.3 [Prokka](#18)<br>
+    - 2.5.4 [Plot synteny](#33)<br>
+      - 2.5.4.1 [Genespace](#34)<br>
+      - 2.5.4.2 [MCSCANX](#35)<br>
+    - 2.5.5 [SNPEff](#25)<br>
+3. [Illumina data - from acquisition experiment samples](#26)<br>
+  - 3.1 [Subtyping primers](#36)<br>
+  - 3.2 [Assess variants](#29)<br>
+    - 3.2.1 [SNPEff](#27)<br>
+    - 3.2.2 [Splitstree](#28)<br>
+  - 3.3 [Investigate multiple strains](#30)<br>
+    - 3.3.1 [Identify fixed positions](#31)<br>
+    - 3.3.2 [Multi-peak positions](#39)<br>
+  - 3.4 [Acquisition expriment samples - raw reads](#38)<br>
+    - 3.4.1 [QC of raw reads](#37)<br>
 
 # Sequencing  <a name="1"></a>
 ## Nanopore adaptive sampling <a name="2"></a>
@@ -81,23 +81,23 @@ minimap2 -k15 -w5 -t 1 \
 ```
 The apple genome is ~630Mb, so a reduced sequence set may be required as this is far larger than the recommended 125Mb .fasta size. We also know from experience that the sequencing will fail if there are too many sequences (~25,000) in the .fasta even if it is <125Mb
 
-CP168782.1 Malus domestica cultivar Golden Delicious chromosome 01      32,452,868
-CP168783.1 Malus domestica cultivar Golden Delicious chromosome 02      37,717,778
-CP168784.1 Malus domestica cultivar Golden Delicious chromosome 03      37,919,568
-CP168785.1 Malus domestica cultivar Golden Delicious chromosome 04      31,738,030
-CP168786.1 Malus domestica cultivar Golden Delicious chromosome 05      46,786,874
-CP168787.1 Malus domestica cultivar Golden Delicious chromosome 06      35,382,598
-CP168788.1 Malus domestica cultivar Golden Delicious chromosome 07      36,939,614
-CP168789.1 Malus domestica cultivar Golden Delicious chromosome 08      31,204,305
-CP168790.1 Malus domestica cultivar Golden Delicious chromosome 09      35,893,544
-CP168791.1 Malus domestica cultivar Golden Delicious chromosome 10      43,556,527
-CP168792.1 Malus domestica cultivar Golden Delicious chromosome 11      41,353,263
-CP168793.1 Malus domestica cultivar Golden Delicious chromosome 12      31,835,694
-CP168794.1 Malus domestica cultivar Golden Delicious chromosome 13      44,611,933
-CP168795.1 Malus domestica cultivar Golden Delicious chromosome 14      31,639,640
-CP168796.1 Malus domestica cultivar Golden Delicious chromosome 15      56,249,447
-CP168797.1 Malus domestica cultivar Golden Delicious chromosome 16      40,837,467
-CP168798.1 Malus domestica cultivar Golden Delicious chromosome 17      34,656,096
+CP168782.1 Malus domestica cultivar Golden Delicious chromosome 01      32,452,868<br>
+CP168783.1 Malus domestica cultivar Golden Delicious chromosome 02      37,717,778<br>
+CP168784.1 Malus domestica cultivar Golden Delicious chromosome 03      37,919,568<br>
+CP168785.1 Malus domestica cultivar Golden Delicious chromosome 04      31,738,030<br>
+CP168786.1 Malus domestica cultivar Golden Delicious chromosome 05      46,786,874<br>
+CP168787.1 Malus domestica cultivar Golden Delicious chromosome 06      35,382,598<br>
+CP168788.1 Malus domestica cultivar Golden Delicious chromosome 07      36,939,614<br>
+CP168789.1 Malus domestica cultivar Golden Delicious chromosome 08      31,204,305<br>
+CP168790.1 Malus domestica cultivar Golden Delicious chromosome 09      35,893,544<br>
+CP168791.1 Malus domestica cultivar Golden Delicious chromosome 10      43,556,527<br>
+CP168792.1 Malus domestica cultivar Golden Delicious chromosome 11      41,353,263<br>
+CP168793.1 Malus domestica cultivar Golden Delicious chromosome 12      31,835,694<br>
+CP168794.1 Malus domestica cultivar Golden Delicious chromosome 13      44,611,933<br>
+CP168795.1 Malus domestica cultivar Golden Delicious chromosome 14      31,639,640<br>
+CP168796.1 Malus domestica cultivar Golden Delicious chromosome 15      56,249,447<br>
+CP168797.1 Malus domestica cultivar Golden Delicious chromosome 16      40,837,467<br>
+CP168798.1 Malus domestica cultivar Golden Delicious chromosome 17      34,656,096<br>
 
 ```bash
 #get gene coding regions of the apple genome only
@@ -442,10 +442,10 @@ echo "${file%.fq.gz}_long.fasta"
 grep '>' "${file%.fq.gz}_long.fasta" | wc -l
 done
 ```
-depletion with .BED = 1,335,032 reads >1,000bp
-enrichment with .BED = 414 reads >1,000bp
-enrichment w/o .BED, .FASTA only = 18,572 reads >1,000bp
-depletion w/o .BED, .FASTA only = 92,847  reads >1,000bp
+depletion with .BED = 1,335,032 reads >1,000bp<br>
+enrichment with .BED = 414 reads >1,000bp<br>
+enrichment w/o .BED, .FASTA only = 18,572 reads >1,000bp<br>
+depletion w/o .BED, .FASTA only = 92,847  reads >1,000bp<br>
 
 Depletion mode produces many reads >1,000bp, however these are clustered around 3.5kb in length. The DNA Control Sample (DCS) is a 3.6 kb standard amplicon mapping the 3' end of the Lambda genome. It therefore appears that library prep and sequencing has worked but that the sample only contains the DCS.
 
