@@ -2,53 +2,53 @@
 
 ## Contents
 1. [Sequencing](#1)<br>
-  - 1.1 [Nanopore adaptive sampling](#2)<br>
-    - 1.1.1 [Pant samples](#41)<br>
-    - 1.1.2 [Picta samples](#42)<br>
-  - 1.2 [Post-sequencing analysis](#4)<br>
-  - 1.3 [45UP](41)<br>
-    - 1.3.1 [Basecalling](#5)<br>
-    - 1.3.2 [Taxonomic classication of reads](#6)<br>
-      - 1.3.2.1 [BLAST](#7)<br>
-      - 1.3.2.2 [Kraken2](#8)<br>
-  - 1.4 [19A](42)<br>
-    - 1.3.1 [Basecalling](#43)<br>
-    - 1.3.2 [Taxonomic classication of reads](#44)<br>
-      - 1.3.2.1 [BLAST](#45)<br>
-      - 1.3.2.2 [Kraken2](#46)<br>
+  1.1 [Nanopore adaptive sampling](#2)<br>
+    1.1.1 [Pant samples](#41)<br>
+    1.1.2 [Picta samples](#42)<br>
+  1.2 [Post-sequencing analysis](#4)<br>
+  1.3 [45UP](41)<br>
+    1.3.1 [Basecalling](#5)<br>
+    1.3.2 [Taxonomic classication of reads](#6)<br>
+      1.3.2.1 [BLAST](#7)<br>
+      1.3.2.2 [Kraken2](#8)<br>
+  1.4 [19A](42)<br>
+    1.3.1 [Basecalling](#43)<br>
+    1.3.2 [Taxonomic classication of reads](#44)<br>
+      1.3.2.1 [BLAST](#45)<br>
+      1.3.2.2 [Kraken2](#46)<br>
 2. [Comparison of Phytoplasma mali genomes](#3)<br>
-  - 2.1 [Subtyping primers](#10)<br>
-    - 2.1.1 [rpl22 - qPCR primer](#19)<br>
-    - 2.1.2 [AP13/10 - AFLP primers](#20)<br>
-    - 2.1.3 [AP5/4 - AFLP primers](#21)<br>
-    - 2.1.4 [AP8/10 - AFLP primers](#22)<br>
-  - 2.2 [k-mer based similarity](#23)<br>
-    - 2.2.1 [Sourmash](#11)<br>
-  - 2.3 [Whole genome alignment](#12)<br>
-    - 2.3.1 [Pairwise alignment](#24)<br>
-    - 2.3.2 [Cactus](#15)<br>
-  - 2.4 [Pangenome](#14)<br>
-    - 2.4.1 [Cactus](#16)<br>
-    - 2.4.2 [Investigate variation in the pangenome](#32)<br>
-    - 2.4.3 [Investigate acessory regions in the pangenome](#40)<br>
-  - 2.5 [Gene content](#13)<br>
-    - 2.5.1 [BUSCO](#9)<br>
-    - 2.5.2 [PGAP](#17)<br>
-    - 2.5.3 [Prokka](#18)<br>
-    - 2.5.4 [Plot synteny](#33)<br>
-      - 2.5.4.1 [Genespace](#34)<br>
-      - 2.5.4.2 [MCSCANX](#35)<br>
-    - 2.5.5 [SNPEff](#25)<br>
+  2.1 [Subtyping primers](#10)<br>
+    2.1.1 [rpl22 - qPCR primer](#19)<br>
+    2.1.2 [AP13/10 - AFLP primers](#20)<br>
+    2.1.3 [AP5/4 - AFLP primers](#21)<br>
+    2.1.4 [AP8/10 - AFLP primers](#22)<br>
+  2.2 [k-mer based similarity](#23)<br>
+    2.2.1 [Sourmash](#11)<br>
+  2.3 [Whole genome alignment](#12)<br>
+    2.3.1 [Pairwise alignment](#24)<br>
+    2.3.2 [Cactus](#15)<br>
+  2.4 [Pangenome](#14)<br>
+    2.4.1 [Cactus](#16)<br>
+    2.4.2 [Investigate variation in the pangenome](#32)<br>
+    2.4.3 [Investigate acessory regions in the pangenome](#40)<br>
+  2.5 [Gene content](#13)<br>
+    2.5.1 [BUSCO](#9)<br>
+    2.5.2 [PGAP](#17)<br>
+    2.5.3 [Prokka](#18)<br>
+    2.5.4 [Plot synteny](#33)<br>
+      2.5.4.1 [Genespace](#34)<br>
+      2.5.4.2 [MCSCANX](#35)<br>
+    2.5.5 [SNPEff](#25)<br>
 3. [Illumina data - from acquisition experiment samples](#26)<br>
-  - 3.1 [Subtyping primers](#36)<br>
-  - 3.2 [Assess variants](#29)<br>
-    - 3.2.1 [SNPEff](#27)<br>
-    - 3.2.2 [Splitstree](#28)<br>
-  - 3.3 [Investigate multiple strains](#30)<br>
-    - 3.3.1 [Identify fixed positions](#31)<br>
-    - 3.3.2 [Multi-peak positions](#39)<br>
-  - 3.4 [Acquisition expriment samples - raw reads](#38)<br>
-    - 3.4.1 [QC of raw reads](#37)<br>
+  3.1 [Subtyping primers](#36)<br>
+  3.2 [Assess variants](#29)<br>
+    3.2.1 [SNPEff](#27)<br>
+    3.2.2 [Splitstree](#28)<br>
+  3.3 [Investigate multiple strains](#30)<br>
+    3.3.1 [Identify fixed positions](#31)<br>
+    3.3.2 [Multi-peak positions](#39)<br>
+  3.4 [Acquisition expriment samples - raw reads](#38)<br>
+    3.4.1 [QC of raw reads](#37)<br>
 
 # Sequencing  <a name="1"></a>
 ## Nanopore adaptive sampling <a name="2"></a>
