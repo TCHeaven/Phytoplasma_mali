@@ -4856,3 +4856,509 @@ upset(
   )
 )
 ```
+```R
+###############################################################################
+# Diagnostics for apple vs hawthorn microbiome comparison
+#
+# Addresses:
+#   0. Provenance  - is the loaded table really ASV level?
+#   1. Taxonomy    - parse by rank prefix, not column position
+#   3. Depth       - does library size confound host?
+#   4. PERMANOVA   - rerun on relative abundance + rarefied counts
+#   5. betadisper  - centroid shift vs dispersion difference
+#   6. SIMPER      - which ASVs drive the Bray-Curtis separation
+#   7/8. Per-ASV   - Fisher (occurrence) AND Wilcoxon (abundance), per country
+#   9. tax_glom    - how much is lost to NArm, and genus-level tests per country
+#
+# Run top to bottom. Each section prints its own verdict.
+###############################################################################
+
+library(phyloseq)
+library(vegan)
+library(tidyverse)
+
+setwd("C:/Users/THeaven/OneDrive - Scientific Network South Tyrol/R")
+set.seed(1)
+
+FEATURE_TABLE <- "down_20260528-2/feature-table_Lapo3.tsv"
+TAXONOMY      <- "down_20260528-2/exported-taxonomy_Lapo3/taxonomy.tsv"
+METADATA      <- "down_20260505/sample-metadata.tsv"
+
+###############################################################################
+# 0. PROVENANCE CHECK -- confirm the feature table is ASV level, not collapsed
+###############################################################################
+
+otu <- read.table(FEATURE_TABLE, header = TRUE, row.names = 1,
+                  sep = "\t", comment.char = "")
+otu <- as.matrix(otu)
+colnames(otu) <- gsub("\\.", "-", colnames(otu))
+
+cat("\n=== 0. PROVENANCE ===\n")
+cat("Features in table:", nrow(otu), "\n")
+cat("First 3 feature IDs:\n"); print(head(rownames(otu), 3))
+
+looks_collapsed <- any(grepl(";", rownames(otu)))
+cat("Row names contain ';' (taxonomy strings) ->",
+    ifelse(looks_collapsed,
+           "COLLAPSED TABLE. Stop: rerun the ASV export.",
+           "ASV-level hashes. Good."), "\n")
+stopifnot(!looks_collapsed)
+
+###############################################################################
+# 1. TAXONOMY -- parse by prefix so ranks cannot shift columns
+###############################################################################
+
+tax_raw <- read.table(TAXONOMY, header = TRUE, sep = "\t",
+                      row.names = 1, quote = "", comment.char = "")
+
+rank_prefix <- c(Kingdom = "[dk]__", Phylum = "p__", Class = "c__",
+                 Order = "o__", Family = "f__", Genus = "g__", Species = "s__")
+
+tax_split <- as.data.frame(
+  sapply(rank_prefix, function(p)
+    str_match(tax_raw$Taxon, paste0(p, "([^;]*)"))[, 2]),
+  stringsAsFactors = FALSE
+)
+rownames(tax_split) <- rownames(tax_raw)
+tax_split[] <- lapply(tax_split, trimws)
+
+# How many rows did the old positional separate() have mangled?
+cat("\n=== 1. TAXONOMY PARSING ===\n")
+cat("ASVs with a Genus assignment:", sum(!is.na(tax_split$Genus)), "/",
+    nrow(tax_split), "\n")
+cat("ASVs with Species but no Genus (positional parse would shift these):",
+    sum(!is.na(tax_split$Species) & is.na(tax_split$Genus)), "\n")
+
+###############################################################################
+# BUILD PHYLOSEQ
+###############################################################################
+
+meta <- read_tsv(METADATA, comment = "", show_col_types = FALSE) %>%
+  column_to_rownames("#SampleID")
+
+shared <- intersect(rownames(otu), rownames(tax_split))
+cat("Feature IDs shared between table and taxonomy:", length(shared),
+    "of", nrow(otu), "\n")
+stopifnot(length(shared) > 0.9 * nrow(otu))
+
+ps <- phyloseq(otu_table(otu, taxa_are_rows = TRUE),
+               sample_data(meta),
+               tax_table(as.matrix(tax_split)))
+
+# Field samples, drop Germany (as in the original analysis)
+meta_f <- meta[meta$Field_Lab2 == "field" & meta$country != "Germany", ]
+ps_f   <- prune_samples(rownames(meta_f), ps)
+ps_f   <- prune_taxa(taxa_sums(ps_f) > 0, ps_f)
+
+countries <- unique(meta_f$country)
+
+###############################################################################
+# 3. SEQUENCING DEPTH -- is library size confounded with host?
+###############################################################################
+
+cat("\n=== 3. SEQUENCING DEPTH BY HOST ===\n")
+depth_df <- data.frame(Sample = sample_names(ps_f),
+                       Depth  = sample_sums(ps_f))
+depth_df <- merge(depth_df, meta_f %>% rownames_to_column("Sample"), by = "Sample")
+
+for (ct in countries) {
+  d <- subset(depth_df, country == ct)
+  cat("\n--", ct, "--\n")
+  print(tapply(d$Depth, d$host, summary))
+  if (length(unique(d$host)) == 2)
+    cat("Wilcoxon depth ~ host p =",
+        signif(wilcox.test(Depth ~ host, data = d)$p.value, 3), "\n")
+}
+cat("\nIf depth differs by host, raw-count Bray-Curtis is confounded.\n")
+
+###############################################################################
+# 4. PERMANOVA -- raw vs relative abundance vs rarefied, per country
+###############################################################################
+
+cat("\n=== 4. PERMANOVA (three normalizations) ===\n")
+
+ps_rel  <- transform_sample_counts(ps_f, function(x) x / sum(x))
+min_d   <- min(sample_sums(ps_f))
+ps_rare <- rarefy_even_depth(ps_f, sample.size = min_d,
+                             rngseed = 1, replace = FALSE, verbose = FALSE)
+cat("Rarefaction depth:", min_d, "\n")
+
+permanova_res <- list()
+
+for (ct in countries) {
+  meta_ct <- meta_f[meta_f$country == ct, ]
+  if (length(unique(meta_ct$host)) < 2) next
+
+  for (nm in c("raw", "relative", "rarefied")) {
+    obj <- switch(nm, raw = ps_f, relative = ps_rel, rarefied = ps_rare)
+    keep <- intersect(rownames(meta_ct), sample_names(obj))
+    ps_ct <- prune_samples(keep, obj)
+    m_ct  <- meta_ct[keep, ]
+
+    d  <- phyloseq::distance(ps_ct, method = "bray")
+    ad <- adonis2(d ~ host, data = m_ct, permutations = 999)
+
+    permanova_res[[paste(ct, nm)]] <- ad
+    cat(sprintf("%-16s %-9s R2 = %.3f   p = %.3f\n",
+                ct, nm, ad$R2[1], ad$`Pr(>F)`[1]))
+  }
+}
+cat("\nIf p collapses when moving off 'raw', the original result was a depth artifact.\n")
+
+###############################################################################
+# 5. BETADISPER -- centroid shift or dispersion difference?
+###############################################################################
+
+cat("\n=== 5. BETADISPER (on relative abundance) ===\n")
+
+for (ct in countries) {
+  meta_ct <- meta_f[meta_f$country == ct, ]
+  if (length(unique(meta_ct$host)) < 2) next
+
+  keep  <- intersect(rownames(meta_ct), sample_names(ps_rel))
+  ps_ct <- prune_samples(keep, ps_rel)
+  m_ct  <- meta_ct[keep, ]
+
+  d  <- phyloseq::distance(ps_ct, method = "bray")
+  bd <- betadisper(d, factor(m_ct$host))
+  pt <- permutest(bd, permutations = 999)
+
+  cat(sprintf("%-16s dispersion p = %.3f | mean dist-to-centroid: %s\n",
+              ct, pt$tab$`Pr(>F)`[1],
+              paste(sprintf("%s=%.3f", names(tapply(bd$distances, bd$group, mean)),
+                            tapply(bd$distances, bd$group, mean)), collapse = ", ")))
+}
+cat("\nSignificant here + significant PERMANOVA = interpret with caution:\n")
+cat("the groups may differ in variability rather than in average composition.\n")
+
+###############################################################################
+# 6. SIMPER -- which ASVs actually drive the separation?
+###############################################################################
+
+cat("\n=== 6. SIMPER (top 10 contributing ASVs per country) ===\n")
+
+for (ct in countries) {
+  meta_ct <- meta_f[meta_f$country == ct, ]
+  if (length(unique(meta_ct$host)) < 2) next
+
+  keep  <- intersect(rownames(meta_ct), sample_names(ps_rel))
+  ps_ct <- prune_samples(keep, ps_rel)
+  m_ct  <- meta_ct[keep, ]
+
+  comm <- as(otu_table(ps_ct), "matrix")
+  if (taxa_are_rows(ps_ct)) comm <- t(comm)
+
+  sim <- summary(simper(comm, m_ct$host, permutations = 99))
+  top <- head(sim[[1]], 10)
+
+  tt  <- as.data.frame(tax_table(ps_ct))[rownames(top), c("Family", "Genus")]
+  out <- cbind(top[, c("average", "cumsum", "p")], tt)
+
+  cat("\n--", ct, "--\n"); print(round_df <- out)
+}
+cat("\nSeveral ASVs from the SAME genus splitting by host would explain\n")
+cat("why genus-level tests find nothing.\n")
+
+###############################################################################
+# 7 + 8. PER-ASV TESTS, PER COUNTRY -- same features PERMANOVA saw
+###############################################################################
+
+cat("\n=== 7/8. PER-ASV TESTS BY COUNTRY ===\n")
+
+asv_results <- list()
+
+for (ct in countries) {
+  meta_ct <- meta_f[meta_f$country == ct, ]
+  if (length(unique(meta_ct$host)) < 2) next
+
+  keep  <- intersect(rownames(meta_ct), sample_names(ps_f))
+  m_ct  <- meta_ct[keep, ]
+  grp   <- factor(m_ct$host)
+
+  # counts for occurrence, relative abundance for magnitude
+  cnt <- as(otu_table(prune_samples(keep, ps_f)),   "matrix")
+  rel <- as(otu_table(prune_samples(keep, ps_rel)), "matrix")
+  if (taxa_are_rows(ps_f))   cnt <- t(cnt)
+  if (taxa_are_rows(ps_rel)) rel <- t(rel)
+  cnt <- cnt[keep, ]; rel <- rel[keep, ]
+
+  pa <- (cnt > 0) * 1
+
+  # prevalence filter: variable enough to be testable
+  prev  <- colSums(pa)
+  testable <- prev >= 3 & prev <= (nrow(pa) - 3)
+  pa_t  <- pa[,  testable, drop = FALSE]
+  rel_t <- rel[, testable, drop = FALSE]
+  cat("\n--", ct, "-- ASVs tested:", ncol(pa_t), "of", ncol(pa), "\n")
+
+  p_fisher <- apply(pa_t, 2, function(x) {
+    tb <- table(x, grp)
+    if (nrow(tb) < 2 || ncol(tb) < 2) return(NA)
+    fisher.test(tb)$p.value
+  })
+  p_wilcox <- apply(rel_t, 2, function(x)
+    suppressWarnings(wilcox.test(x ~ grp)$p.value))
+
+  res <- data.frame(
+    ASV        = colnames(pa_t),
+    Genus      = as.data.frame(tax_table(ps_f))[colnames(pa_t), "Genus"],
+    Family     = as.data.frame(tax_table(ps_f))[colnames(pa_t), "Family"],
+    p_fisher   = p_fisher,
+    q_fisher   = p.adjust(p_fisher, "BH"),
+    p_wilcox   = p_wilcox,
+    q_wilcox   = p.adjust(p_wilcox, "BH"),
+    row.names  = NULL
+  )
+  res <- res[order(res$q_wilcox), ]
+  asv_results[[ct]] <- res
+
+  cat("Significant (q<0.05) occurrence:", sum(res$q_fisher < 0.05, na.rm = TRUE),
+      "| abundance:", sum(res$q_wilcox < 0.05, na.rm = TRUE), "\n")
+  print(head(res, 10))
+
+  # do multiple ASVs of one genus show up? -> sub-genus differentiation
+  sig <- res[res$q_wilcox < 0.05 & !is.na(res$q_wilcox), ]
+  if (nrow(sig)) {
+    cat("Significant ASVs per genus:\n")
+    print(sort(table(sig$Genus), decreasing = TRUE))
+  }
+}
+
+###############################################################################
+# 9. TAX_GLOM LOSS + GENUS-LEVEL TESTS PER COUNTRY
+###############################################################################
+
+cat("\n=== 9. TAX_GLOM LOSS ===\n")
+
+g_narm_T <- tax_glom(ps_f, "Genus", NArm = TRUE)
+g_narm_F <- tax_glom(ps_f, "Genus", NArm = FALSE)
+
+cat("ASVs:", ntaxa(ps_f),
+    "| genera (NArm=TRUE):",  ntaxa(g_narm_T),
+    "| genera (NArm=FALSE):", ntaxa(g_narm_F), "\n")
+cat("Reads retained NArm=TRUE:",
+    round(100 * sum(sample_sums(g_narm_T)) / sum(sample_sums(ps_f)), 1), "%\n")
+cat("-> reads discarded by the original genus analysis:",
+    round(100 - 100 * sum(sample_sums(g_narm_T)) / sum(sample_sums(ps_f)), 1), "%\n")
+
+cat("\n=== 9b. GENUS-LEVEL TESTS PER COUNTRY (NArm = FALSE) ===\n")
+
+g_rel <- transform_sample_counts(g_narm_F, function(x) x / sum(x))
+
+for (ct in countries) {
+  meta_ct <- meta_f[meta_f$country == ct, ]
+  if (length(unique(meta_ct$host)) < 2) next
+
+  keep <- intersect(rownames(meta_ct), sample_names(g_narm_F))
+  grp  <- factor(meta_ct[keep, "host"])
+
+  cnt <- as(otu_table(prune_samples(keep, g_narm_F)), "matrix")
+  rel <- as(otu_table(prune_samples(keep, g_rel)),    "matrix")
+  if (taxa_are_rows(g_narm_F)) cnt <- t(cnt)
+  if (taxa_are_rows(g_rel))    rel <- t(rel)
+  cnt <- cnt[keep, ]; rel <- rel[keep, ]
+
+  pa <- (cnt > 0) * 1
+  testable <- colSums(pa) >= 2 & colSums(pa) <= (nrow(pa) - 2)
+
+  pf <- apply(pa[, testable, drop = FALSE], 2, function(x) {
+    tb <- table(x, grp)
+    if (nrow(tb) < 2 || ncol(tb) < 2) return(NA)
+    fisher.test(tb)$p.value
+  })
+  pw <- apply(rel[, testable, drop = FALSE], 2,
+              function(x) suppressWarnings(wilcox.test(x ~ grp)$p.value))
+
+  gt <- as.data.frame(tax_table(g_narm_F))[names(pf), "Genus"]
+  out <- data.frame(Genus = gt, p_fisher = pf, q_fisher = p.adjust(pf, "BH"),
+                    p_wilcox = pw, q_wilcox = p.adjust(pw, "BH"), row.names = NULL)
+  out <- out[order(out$q_wilcox), ]
+
+  cat("\n--", ct, "-- genera tested:", sum(testable), "\n")
+  print(head(out, 10))
+}
+
+###############################################################################
+# SAVE
+###############################################################################
+
+saveRDS(list(permanova = permanova_res, asv_tests = asv_results),
+        "diagnostics_results.rds")
+for (ct in names(asv_results))
+  write.csv(asv_results[[ct]],
+            paste0("asv_tests_", gsub(" ", "_", ct), ".csv"), row.names = FALSE)
+
+cat("\nDone. Per-ASV tables written to asv_tests_<country>.csv\n")
+```
+```R
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("ComplexHeatmap")
+
+###############################################################################
+# Heatmap with custom taxon grouping
+#
+# Default: collapse to Genus.
+# Exceptions:
+#   - unclassified_Morganellaceae: keep ASV1 and ASV2 as their own rows,
+#     pool every other unclassified_Morganellaceae ASV into one row
+#   - Candidatus_Carsonella: keep each ASV as its own row (don't pool)
+#
+# Assumes ps_f (ASV-level phyloseq, filtered to the sample set you want to
+# plot) and its tax_table already exist, as built in the diagnostics script.
+###############################################################################
+
+library(phyloseq)
+library(ComplexHeatmap)
+library(circlize)
+library(dplyr)
+
+# ---- 1. pick the sample set for the heatmap (adjust as needed) -----------
+# field samples, all countries except Germany (Italy included):
+meta_hm <- meta[meta$Field_Lab2 == "field" &
+                  meta$country != "Germany", ]
+ps_hm <- prune_samples(rownames(meta_hm), ps_f)
+ps_hm <- prune_taxa(taxa_sums(ps_hm) > 0, ps_hm)
+
+# ---- 2. ASV-level count matrix (samples x ASVs) ---------------------------
+mat_asv <- as(otu_table(ps_hm), "matrix")
+if (taxa_are_rows(ps_hm)) mat_asv <- t(mat_asv)   # -> samples x ASVs
+
+tax_df <- as.data.frame(tax_table(ps_hm))
+tax_df$ASV <- rownames(tax_df)
+
+# ---- 3. build the custom label per ASV ------------------------------------
+tax_df <- tax_df %>%
+  mutate(
+    Genus_clean  = ifelse(is.na(Genus) | Genus == "", "Unknown", Genus),
+    # strip any rank prefix (g__, s__, etc.) just for matching purposes
+    Genus_match  = sub("^[a-z]__", "", Genus_clean),
+    # also strip the prefix for display, so default genus labels are clean
+    Genus_display = sub("^[a-z]__", "", Genus_clean),
+    Label = case_when(
+      Genus_match == "Candidatus_Carsonella"        ~ paste0("Carsonella_", ASV),
+      Genus_match == "unclassified_Morganellaceae" & ASV %in% c("ASV1", "ASV2") ~
+        paste0("unclassified_Morganellaceae_", ASV),
+      Genus_match == "unclassified_Morganellaceae"  ~ "unclassified_Morganellaceae_other",
+      TRUE                                           ~ Genus_display
+    )
+  )
+
+label_map <- setNames(tax_df$Label, tax_df$ASV)
+stopifnot(all(colnames(mat_asv) %in% names(label_map)))
+
+# sanity check: confirm the split actually happened before proceeding
+cat("Distinct Carsonella labels:\n")
+print(unique(tax_df$Label[grepl("Carsonella", tax_df$Label)]))
+cat("Distinct Morganellaceae-related labels:\n")
+print(unique(tax_df$Label[grepl("Morganellaceae", tax_df$Label)]))
+
+# ---- 4. aggregate rows (ASVs) by the custom label -------------------------
+# mat_asv is currently samples x ASVs; group ASV columns into rows directly
+grp <- label_map[colnames(mat_asv)]
+mat_grouped <- rowsum(t(mat_asv), group = grp)   # groups x samples
+
+cat("Groups in heatmap:\n")
+print(rownames(mat_grouped))
+cat("\nASVs pooled into 'unclassified_Morganellaceae_other':",
+    sum(grp == "unclassified_Morganellaceae_other"), "\n")
+cat("Carsonella ASVs kept separate:",
+    sum(grepl("^Carsonella_", grp)), "\n")
+
+# ---- 5. relative abundance (per sample, i.e. per column) + log transform --
+mat_rel <- sweep(mat_grouped, 2, colSums(mat_grouped), "/")
+mat_rel_log <- log10(mat_rel + 1e-6)
+
+# ---- 6. order samples (columns) by country, then host ---------------------
+# ---- 6. custom row ordering & sanity check ---------------------------------
+meta_ord <- meta_hm[colnames(mat_rel_log), ]
+ord <- order(meta_ord$country, meta_ord$host)
+
+mat_ordered  <- mat_rel_log[, ord]
+meta_ordered <- meta_ord[ord, ]
+
+# Define desired top taxa in order from top -> down
+desired_top <- c(
+  "unclassified_Morganellaceae_ASV1",
+  "unclassified_Morganellaceae_ASV2",
+  "unclassified_Morganellaceae_other",
+  "Carsonella_ASV39",
+  "Carsonella_ASV370"
+)
+
+# 1. Check exact matches against actual row names
+present_top <- intersect(desired_top, rownames(mat_ordered))
+cat("Found", length(present_top), "of", length(desired_top), "requested top rows:\n")
+print(present_top)
+
+# Print missing rows if any (to troubleshoot spelling/naming mismatches)
+missing_top <- setdiff(desired_top, rownames(mat_ordered))
+if (length(missing_top) > 0) {
+  cat("\nWARNING - These labels were NOT found in matrix rownames:\n")
+  print(missing_top)
+}
+
+# 2. Extract remaining taxa & cluster them
+other_taxa <- setdiff(rownames(mat_ordered), present_top)
+
+if (length(other_taxa) > 1) {
+  dend_others <- hclust(dist(mat_ordered[other_taxa, ]))
+  other_taxa_ordered <- other_taxa[dend_others$order]
+} else {
+  other_taxa_ordered <- other_taxa
+}
+
+# 3. Build final row order vector (Top taxa first, then clustered remaining)
+final_row_names <- c(present_top, other_taxa_ordered)
+
+# Convert row names to integer row indices for ComplexHeatmap
+custom_row_order <- match(final_row_names, rownames(mat_ordered))
+
+
+# ---- Annotations & Colors --------------------------------------------------
+annotation_col <- data.frame(
+  Country = meta_ordered$country,
+  Host    = meta_ordered$host,
+  row.names = colnames(mat_ordered)
+)
+
+country_levels <- unique(as.character(meta_ordered$country))
+col_split <- factor(as.character(meta_ordered$country), levels = country_levels)
+
+top_anno <- HeatmapAnnotation(
+  df = annotation_col,
+  col = list(
+    Country = setNames(RColorBrewer::brewer.pal(max(3, length(country_levels)),
+                                              "Set2")[seq_along(country_levels)],
+                       country_levels),
+    Host = c(apple = "#66CC66", hawthorn = "#CC6666")
+  )
+)
+
+col_fun <- colorRamp2(
+  seq(min(mat_ordered, na.rm = TRUE), max(mat_ordered, na.rm = TRUE), length.out = 100),
+  colorRampPalette(c("white", "blue", "red"))(100)
+)
+
+
+# ---- 7. plot ---------------------------------------------------------------
+ht <- Heatmap(
+  mat_ordered,
+  name = "log10 rel.\nabundance",
+  col = col_fun,
+  cluster_rows = FALSE,            # Disable automatic clustering tree
+  row_order = custom_row_order,    # Force explicit index ordering
+  cluster_columns = FALSE,
+  cluster_column_slices = FALSE,
+  column_split = col_split,
+  top_annotation = top_anno,
+  row_names_side = "left",
+  rect_gp = gpar(col = "grey80", lwd = 0.5),
+  border = TRUE,
+  column_gap = unit(2, "mm"),
+  row_names_gp = gpar(fontsize = 9)
+)
+
+draw(ht)
+```
