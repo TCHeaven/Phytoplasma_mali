@@ -1914,7 +1914,7 @@ wc -l /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt_
 ```
 Only ~1,240 reads are from Ca. P. mali:
 
-![Kraken2 all read depletion .bed classifications for 25A2](figures/Screenshot 2026-09-29 154614.png)
+![Kraken2 all read depletion .bed classifications for 25A2](figures/Screenshot_2026-09-29_154614.png)
 
 ### Genome assembly  <a name="64"></a>
 
@@ -2005,7 +2005,7 @@ nextflow run epi2me-labs/wf-bacterial-genomes \
 ```
 Based on the reference guided assembly the coverage of the phytoplasma genome with the ONT data very is low:
 
-![Reference guided assembly of 25A2](figures/Screenshot 2026-09-29 172558.png)
+![Reference guided assembly of 25A2](figures/Screenshot_2026-09-29_172558.png)
 
 ```bash
 samtools view -F 4 \
@@ -2164,7 +2164,7 @@ wc -l /data/users/theaven/phytolasma/raw_data/minion/AT2-62B/pod5/basecalls/krak
 
 Only ~7,470 reads are from Ca. P. mali:
 
-![Kraken2 all read depletion .bed classifications for AT2-62B](figures/Screenshot 2026-09-29 163303.png)
+![Kraken2 all read depletion .bed classifications for AT2-62B](figures/Screenshot_2026-09-29_163303.png)
 
 It is also odd that reads are mostly classified to Timema, presumably Cacopsylla picta is not in the reference database, but Cacopsylla melanoneura clearly is in other samples and should be more closely related to picta.
 
@@ -2295,7 +2295,7 @@ nextflow run epi2me-labs/wf-bacterial-genomes \
 ```
 Based on the reference guided assembly the coverage of the phytoplasma genome with the ONT data is low:
 
-![Reference guided assembly of AT2-62B](figures/Screenshot 2026-09-29 172256.png)
+![Reference guided assembly of AT2-62B](figures/Screenshot_2026-09-29_172256.png)
 
 
 ```bash
@@ -2344,6 +2344,8 @@ nextflow run epi2me-labs/wf-bacterial-genomes \
 No contig longer than 10kb.
 
 ## Sample AT1-13-ET
+
+NO SPACE
 
 ```bash
 srun -p bioagri -J pod5 --nodes=1 --ntasks=1 --cpus-per-task=4 --mem 16G --pty bash
