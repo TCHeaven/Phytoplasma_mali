@@ -1818,8 +1818,167 @@ for assembler in canu flye metamdbg miniasm necat nextdenovo plassembler raven m
     done
 done
 
+autocycler compress -i assemblies -a autocycler_out -t 1
 
+autocycler cluster -a autocycler_out --cutoff 0.2 --max_contigs 25 --min_assemblies 1
 
+for c in autocycler_out/clustering/qc_pass/cluster_*; do
+    autocycler trim -c "$c" --min_identity 0.75 --max_unitigs 5000 --mad 5.0 -t 1
+done
+
+for c in autocycler_out/clustering/qc_pass/cluster_*; do
+    autocycler resolve -c "$c"
+done
+
+autocycler combine -a autocycler_out -i autocycler_out/clustering/qc_pass/cluster_*/5_final.gfa --reads /data/users/theaven/phytolasma/raw_data/minion/19A/phytoplasma_mollicutes_95.fq --depth_kmer 19 -t 1
+
+autocycler table > metrics.tsv  # create the TSV header
+for sample in .; do
+    autocycler table -a "$sample" -n "$sample" >> metrics.tsv  # append a TSV row
+done
+
+Query=/data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/consensus_assembly.fasta
+reference=/data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/consensus_assembly.fasta
+name=autocycler_v_autocycler
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+Query=/data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/consensus_assembly.fasta
+reference=/data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.fna
+name=GCF_000026205_v_autocycler
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+Query=/data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/consensus_assembly.fasta
+reference=/data/users/theaven/phytolasma/raw_data/minion/19A/myloasm/assembly_primary.fa
+name=myloasm_v_autocycler
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+Query=/data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/consensus_assembly.fasta
+reference=/data/users/theaven/phytolasma/raw_data/minion/19A/nanoMDBG/contigs.fasta
+name=nanoMDBG_v_autocycler
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+Query=/data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/consensus_assembly.fasta
+reference=/data/users/theaven/phytolasma/raw_data/minion/19A/assembly/EPI2ME/phyto-noref/ragtag/ragtag_scaffold/ragtag.scaffold.fasta
+name=ragtagflye_v_autocycler
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+conda activate minimap2
+module load samtools/1.19.2-gcc-13.3.0-a2yhwkt
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+
+minimap2 \
+  -ax map-ont \
+  -t 16 \
+  /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/consensus_assembly.fasta \
+  /data/users/theaven/phytolasma/raw_data/minion/19A/phytoplasma_mollicutes.fq.gz \
+  | samtools sort -@ 8 -o  /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/19A.alignment.bam
+
+samtools index /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/19A.alignment.bam
+
+export JAVA_TOOL_OPTIONS="-Djava.awt.headless=true"
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/qualimap_2.3--hdfd78af_0 qualimap bamqc -bam /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/19A.alignment.bam -c -outdir /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/qualimap_19A -outfile coverage.pdf -outformat PDF --java-mem-size=64G
+
+####
+
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler2/assemblies
+cd /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler2
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/assemblies/* /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler2/assemblies/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/myloasm/final_contig_graph.gfa /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler2/assemblies/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/myloasm/assembly_primary.fa /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler2/assemblies/final_contig_graph.fasta
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/nanoMDBG/contigs.fasta /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler2/assemblies/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A/assembly/EPI2ME/phyto-noref/ragtag/ragtag_scaffold/ragtag.scaffold.fasta /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler2/assemblies/.
+
+autocycler compress -i assemblies -a autocycler_out -t 16
+
+autocycler cluster -a autocycler_out --cutoff 0.2 --max_contigs 25 --min_assemblies 1
+
+for c in autocycler_out/clustering/qc_pass/cluster_*; do
+    autocycler trim -c "$c" --min_identity 0.75 --max_unitigs 5000 --mad 5.0 -t 16
+done
+
+for c in autocycler_out/clustering/qc_pass/cluster_*; do
+    autocycler resolve -c "$c"
+done
+
+autocycler combine -a autocycler_out -i autocycler_out/clustering/qc_pass/cluster_*/5_final.gfa --reads /data/users/theaven/phytolasma/raw_data/minion/19A/phytoplasma_mollicutes_95.fq --depth_kmer 19 -t 1
+
+autocycler table > metrics.tsv  # create the TSV header
+for sample in .; do
+    autocycler table -a "$sample" -n "$sample" >> metrics.tsv  # append a TSV row
+done
+
+Query=/data/users/theaven/phytolasma/raw_data/minion/19A/autocycler2/autocycler_out/consensus_assembly.fasta
+reference=/data/users/theaven/phytolasma/raw_data/minion/19A/autocycler2/autocycler_out/consensus_assembly.fasta
+name=autocycler_v_autocycler
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+Query=/data/users/theaven/phytolasma/raw_data/minion/19A/autocycler2/autocycler_out/consensus_assembly.fasta
+reference=/data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.fna
+name=GCF_000026205_v_autocycler
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+```
+#### Dorado polish
+
+```bash
+for Assembly in /data/users/theaven/phytolasma/raw_data/minion/19A/autocycler/autocycler_out/consensus_assembly.fasta; do
+  Task=Dorado-pol
+  Reads=/data/users/theaven/phytolasma/raw_data/minion/19A/phytoplasma_mollicutes.fq.gz
+  OutDir=$(dirname $Assembly)/dorado_polish
+  ExpectedOutput="$OutDir"/consensus.fasta
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_dorado_polish.sh "$Assembly" "$Reads" "$OutDir" --bacteria)
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done
+
+seqkit fq2fa \
+    "$OutDir/consensus.fastq" \
+    -o "$OutDir/consensus.fasta"
 ```
 ## Sample 25A2  <a name="59"></a>
 ### Basecalling  <a name="60"></a>
