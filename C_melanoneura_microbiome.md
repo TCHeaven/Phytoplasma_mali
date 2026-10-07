@@ -4413,12 +4413,16 @@ pcoa_df$Sample <- rownames(pcoa_df)
 meta_f$Sample <- rownames(meta_f)
 pcoa_df <- merge(pcoa_df, meta_f, by = "Sample")
 
-ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+ggplot(pcoa_df, aes(PC1, PC2, color = host, shape = type)) +
   geom_point(size = 3) +
   facet_wrap(~ country) +
   scale_color_manual(values = c(
     "hawthorn" = "#CC6666",
     "apple" = "#66CC66"
+  )) +
+    scale_shape_manual(values = c(
+    "one" = 17,  # filled circle
+    "two" = 16      # filled triangle
   )) +
   theme_classic() +
   theme(
@@ -4439,6 +4443,19 @@ ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
     force = 2
   ) +
   facet_wrap(~ country) +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  theme(plot.margin = margin(5.5, 40, 5.5, 5.5))
+
+
+ggplot(pcoa_df, aes(PC1, PC2, color = host)) +
+  geom_point(size = 3) +
+  geom_text_repel(
+    aes(label = Sample),
+    size = 3,
+    max.overlaps = Inf,
+    force = 2
+  ) +
   coord_cartesian(clip = "off") +
   theme_classic() +
   theme(plot.margin = margin(5.5, 40, 5.5, 5.5))
@@ -5361,4 +5378,48 @@ ht <- Heatmap(
 )
 
 draw(ht)
+```
+
+```bash
+module load anaconda3
+module load seqtk/1.4-gcc-12.3.0
+conda activate blast
+
+makeblastdb \
+  -in /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/ASVs.fasta \
+  -dbtype nucl \
+  -out /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/asv_blast/db \
+  -parse_seqids \
+  -title "ASV DB"
+
+seqtk seq -A /data/users/theaven/C_melanoneura_microbiome/raw_data/CZ2_F1/CZ2_F1_1.fastq.gz | \
+blastn \
+    -task megablast \
+    -query - \
+    -db /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/asv_blast/db \
+    -outfmt '6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore' \
+    -max_target_seqs 1 \
+    -max_hsps 1 \
+    -num_threads 1 \
+    -evalue 1e-25 \
+    -out CZ2_F1_F.out
+
+cut -f2 CZ2_F1_F.out | sort | uniq -c | sort -nr | grep -E '\b(ASV39|ASV370|ASV1|ASV2)\b'
+#15 ASV370
+
+seqtk seq -A /data/users/theaven/C_melanoneura_microbiome/qc_data/*/CutAdapt/AO1_F7_1.trim.fastq.gz | \
+blastn \
+    -task megablast \
+    -query - \
+    -db /data/users/theaven/C_melanoneura_microbiome/asvs/ASVs/asv_blast/db \
+    -outfmt '6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore' \
+    -max_target_seqs 1 \
+    -max_hsps 1 \
+    -num_threads 1 \
+    -evalue 1e-25 \
+    -perc_identity 100 \
+    -out AO1_F7_F.out3
+
+cut -f2 AO1_F7_F.out3 | sort | uniq -c | sort -nr | grep -E '\b(ASV39|ASV370|ASV1|ASV2)\b'
+#29 ASV39
 ```
