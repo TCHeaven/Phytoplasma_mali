@@ -5379,6 +5379,139 @@ ht <- Heatmap(
 
 draw(ht)
 ```
+Re-plot with only  taxa that appear in either >10% of samples or have >10% abundance in any one sample
+```bash
+# ---- 5. relative abundance + filter + log transform -----------------------
+mat_rel <- sweep(mat_grouped, 2, colSums(mat_grouped), "/")
+
+prev_thresh <- 0.2   # present in >10% of samples
+abun_thresh <- 0.2   # >10% relative abundance in at least one sample
+
+prevalence <- rowMeans(mat_rel > 0)      # fraction of samples where taxon is present
+max_abun   <- apply(mat_rel, 1, max)     # highest relative abundance in any sample
+
+keep <- prevalence > prev_thresh | max_abun > abun_thresh
+
+# force-keep the rows you pin to the top, so they can't be filtered out
+pinned <- c("unclassified_Morganellaceae_ASV1",
+            "unclassified_Morganellaceae_ASV2",
+            "unclassified_Morganellaceae_other",
+            "Carsonella_ASV39",
+            "Carsonella_ASV370")
+keep[rownames(mat_rel) %in% pinned] <- TRUE
+
+cat("Keeping", sum(keep), "of", length(keep), "groups\n")
+cat("Dropped:\n"); print(rownames(mat_rel)[!keep])
+
+mat_rel     <- mat_rel[keep, , drop = FALSE]
+mat_rel_log <- log10(mat_rel + 1e-6)
+
+# ---- 6. order samples (columns) by country, then host ---------------------
+# ---- 6. custom row ordering & sanity check ---------------------------------
+meta_ord <- meta_hm[colnames(mat_rel_log), ]
+ord <- order(meta_ord$country, meta_ord$host)
+
+mat_ordered  <- mat_rel_log[, ord]
+meta_ordered <- meta_ord[ord, ]
+
+# raw read counts, same rows/columns as the plotted matrix
+# (mat_grouped = pooled counts per label; mat_ordered is already filtered + ordered)
+counts_ordered <- mat_grouped[rownames(mat_ordered), colnames(mat_ordered)]
+stopifnot(identical(dim(counts_ordered), dim(mat_ordered)))
+
+# Define desired top taxa in order from top -> down
+desired_top <- c(
+  "unclassified_Morganellaceae_ASV1",
+  "unclassified_Morganellaceae_ASV2",
+  "unclassified_Morganellaceae_other",
+  "Carsonella_ASV39",
+  "Carsonella_ASV370"
+)
+
+# 1. Check exact matches against actual row names
+present_top <- intersect(desired_top, rownames(mat_ordered))
+cat("Found", length(present_top), "of", length(desired_top), "requested top rows:\n")
+print(present_top)
+
+# Print missing rows if any (to troubleshoot spelling/naming mismatches)
+missing_top <- setdiff(desired_top, rownames(mat_ordered))
+if (length(missing_top) > 0) {
+  cat("\nWARNING - These labels were NOT found in matrix rownames:\n")
+  print(missing_top)
+}
+
+# 2. Extract remaining taxa & cluster them
+other_taxa <- setdiff(rownames(mat_ordered), present_top)
+
+if (length(other_taxa) > 1) {
+  dend_others <- hclust(dist(mat_ordered[other_taxa, ]))
+  other_taxa_ordered <- other_taxa[dend_others$order]
+} else {
+  other_taxa_ordered <- other_taxa
+}
+
+# 3. Build final row order vector (Top taxa first, then clustered remaining)
+final_row_names <- c(present_top, other_taxa_ordered)
+
+# Convert row names to integer row indices for ComplexHeatmap
+custom_row_order <- match(final_row_names, rownames(mat_ordered))
+
+
+# ---- Annotations & Colors --------------------------------------------------
+annotation_col <- data.frame(
+  Country = meta_ordered$country,
+  Host    = meta_ordered$host,
+  row.names = colnames(mat_ordered)
+)
+
+country_levels <- unique(as.character(meta_ordered$country))
+col_split <- factor(as.character(meta_ordered$country), levels = country_levels)
+
+top_anno <- HeatmapAnnotation(
+  df = annotation_col,
+  col = list(
+    Country = setNames(RColorBrewer::brewer.pal(max(3, length(country_levels)),
+                                              "Set2")[seq_along(country_levels)],
+                       country_levels),
+    Host = c(apple = "#66CC66", hawthorn = "#CC6666")
+  )
+)
+
+col_fun <- colorRamp2(
+  seq(min(mat_ordered, na.rm = TRUE), max(mat_ordered, na.rm = TRUE), length.out = 100),
+  colorRampPalette(c("white", "blue", "red"))(100)
+)
+
+
+# ---- 7. plot ---------------------------------------------------------------
+ht <- Heatmap(
+  mat_ordered,
+  name = "log10 rel.\nabundance",
+  col = col_fun,
+  cluster_rows = FALSE,
+  row_order = custom_row_order,
+  cluster_columns = FALSE,
+  cluster_column_slices = FALSE,
+  column_split = col_split,
+  top_annotation = top_anno,
+  row_names_side = "left",
+  rect_gp = gpar(col = "grey80", lwd = 0.5),
+  border = TRUE,
+  column_gap = unit(2, "mm"),
+  row_names_gp = gpar(fontsize = 9),
+
+  cell_fun = function(j, i, x, y, width, height, fill) {
+    n <- counts_ordered[i, j]
+    if (n > 0) {                       # skip zeros to keep it readable
+      grid.text(n, x, y,
+                gp = gpar(fontsize = 5,
+                          col = ifelse(mat_ordered[i, j] > -2.5, "white", "black")))
+    }
+  }
+)
+draw(ht)
+)
+```
 
 ```bash
 module load anaconda3

@@ -6,12 +6,12 @@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.1 [Pant samples](#41)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.1.2 [Picta samples](#42)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;1.2 [Post-sequencing analysis](#4)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;1.3 [Sample 45UP](41)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;1.3 [***Sample 45UP***](41)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.3.1 [Basecalling](#5)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.3.2 [Taxonomic classication of reads](#6)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.3.2.1 [BLAST](#7)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.3.2.2 [Kraken2](#8)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;1.4 [Sample 19A](#42)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;1.4 [***Sample 19A***](#42)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.3.1 [Basecalling](#43)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.3.2 [Taxonomic classication of reads](#44)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.3.2.1 [BWA-mem](#49)<br>
@@ -28,53 +28,64 @@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.3.3.7 [Myloasm](#56)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.3.3.8 [NanoMDBG](#57)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.3.3.9 [Autocycler](#58)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;1.4 [Sample 25A2](#59)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.4.1 [Basecalling](#60)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.4.2 [Taxonomic classication of reads](#61)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.4.2.1 [BWA-mem](#62)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.4.2.2 [Kraken2](#63)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.4.3 [Genome assembly](#64)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.4.3.1 [EPI2ME - wf-bacterial genomes](#65)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;1.5 [Sample AT2-62B](#66)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.1 [Basecalling](#67)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.2 [Taxonomic classication of reads](#68)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.2.1 [BWA-mem](#69)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.2.2 [Kraken2](#70)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.3 [Genome assembly](#71)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.3.1 [EPI2ME - wf-bacterial genomes](#72)<br>
-2. [Comparison of Phytoplasma mali genomes](#3)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;2.1 [Subtyping primers](#10)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.1 [rpl22 - qPCR primer](#19)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2 [AP13/10 - AFLP primers](#20)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.3 [AP5/4 - AFLP primers](#21)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.4 [AP8/10 - AFLP primers](#22)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;2.2 [k-mer based similarity](#23)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1 [Sourmash](#11)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;2.3 [Whole genome alignment](#12)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.3.1 [Pairwise alignment](#24)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.3.2 [Cactus](#15)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;2.4 [Pangenome](#14)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.4.1 [Cactus](#16)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.4.2 [Investigate variation in the pangenome](#32)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.4.3 [Investigate acessory regions in the pangenome](#40)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;2.5 [Gene content](#13)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.5.1 [BUSCO](#9)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.5.2 [PGAP](#17)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.5.3 [Prokka](#18)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.5.4 [Plot synteny](#33)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.5.4.1 [Genespace](#34)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.5.4.2 [MCSCANX](#35)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.5.5 [SNPEff](#25)<br>
-3. [Illumina data - from acquisition experiment samples](#26)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;3.1 [Subtyping primers](#36)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;3.2 [Assess variants](#29)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.2.1 [SNPEff](#27)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.2.2 [Splitstree](#28)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;3.3 [Investigate multiple strains](#30)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.1 [Identify fixed positions](#31)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.2 [Multi-peak positions](#39)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;3.4 [Acquisition expriment samples - raw reads](#38)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.1 [QC of raw reads](#37)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;1.5 [***Sample 25A2***](#59)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.1 [Basecalling](#60)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.2 [Taxonomic classication of reads](#61)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.2.1 [BWA-mem](#62)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.2.2 [Kraken2](#63)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.3 [Genome assembly](#64)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.5.3.1 [EPI2ME - wf-bacterial genomes](#65)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;1.6 [***Sample 28UP***](#73)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.1 [Basecalling](#74)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.2 [Taxonomic classication of reads](#75)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.2.1 [BWA-mem](#76)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.2.2 [Kraken2](#77)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.3 [Genome assemlby](#78)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.3.1 [EPI2ME - wf-bacterial genomes](#79)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.3.2 [Ragtag](#80)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.3.3 [Myloasm](#81)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.3.4 [Autocycler](#82)<br>
+2. [Re-Sequencing of Erika samples](#72)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;2.1 [***Sample AT2-62B***](#66)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.1 [Basecalling](#67)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2 [Taxonomic classication of reads](#68)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2.1 [BWA-mem](#69)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2.2 [Kraken2](#70)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.3 [Genome assembly](#71)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.3.1 [EPI2ME - wf-bacterial genomes](#72)<br>
+3. [Comparison of Phytoplasma mali genomes](#3)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;3.1 [Subtyping primers](#10)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.1.1 [rpl22 - qPCR primer](#19)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.1.2 [AP13/10 - AFLP primers](#20)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.1.3 [AP5/4 - AFLP primers](#21)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.1.4 [AP8/10 - AFLP primers](#22)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;3.2 [k-mer based similarity](#23)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.2.1 [Sourmash](#11)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;3.3 [Whole genome alignment](#12)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.1 [Pairwise alignment](#24)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3.2 [Cactus](#15)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;3.4 [Pangenome](#14)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.1 [Cactus](#16)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.2 [Investigate variation in the pangenome](#32)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4.3 [Investigate acessory regions in the pangenome](#40)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;3.5 [Gene content](#13)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.5.1 [BUSCO](#9)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.5.2 [PGAP](#17)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.5.3 [Prokka](#18)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.5.4 [Plot synteny](#33)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.5.4.1 [Genespace](#34)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.5.4.2 [MCSCANX](#35)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.5.5 [SNPEff](#25)<br>
+4. [Illumina data - from acquisition experiment samples](#26)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;4.1 [Subtyping primers](#36)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;4.2 [Assess variants](#29)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.1 [SNPEff](#27)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2.2 [Splitstree](#28)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;4.3 [Investigate multiple strains](#30)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.3.1 [Identify fixed positions](#31)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.3.2 [Multi-peak positions](#39)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;4.4 [Acquisition expriment samples - raw reads](#38)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.4.1 [QC of raw reads](#37)<br>
 
 # Sequencing  <a name="1"></a>
 ## Nanopore adaptive sampling <a name="2"></a>
@@ -256,11 +267,39 @@ awk '/^>/{if(s){print n"\t0\t"s} n=substr($0,2); s=0; next} {s+=length($0)} END{
 ```
 ### Picta samples <a name="42"></a>
 
-We will prepare these files for sequencing of Phytoplasma mali - and not the host Cacopsylla picta. We plan to use depletion mode primarily but will also test enrichment. Previous experience with plant samples suggests that reference files can be large.
+We will prepare these files for sequencing of Phytoplasma mali - and not the host Caopsylla picta. We plan to use depletion mode primarily but will also test enrichment. Previous experience with plant samples suggests that reference files can be large.
 
 Prepare files:
 ```bash
+#There are 287,348 contigs in the picta "assmbley", I will try using only those >10,000 bp
+awk -F '\t' '{print $1}' FINAL_plant_enrichment.bed > temp.txt
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/NBI/seq_get.py --id_file temp.txt --input FINAL_plant.fna --output FINAL_picta.fna
 
+awk '/^>/{if(s){print n"\t0\t"s} n=substr($0,2); s=0; next} {s+=length($0)} END{print n"\t0\t"s}' Cpic3.scaffolds.filtered.fasta | head -n 14843 | awk -F '\t' '{print $1}'  > temp.txt
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/NBI/seq_get.py --id_file temp.txt --input Cpic3.scaffolds.filtered.fasta --output temp.fasta
+cat temp.fasta >> FINAL_picta.fna
+
+awk '/^>/{if(s){print n"\t0\t"s} n=substr($0,2); s=0; next} {s+=length($0)} END{print n"\t0\t"s}' FINAL_picta.fna | tail -n 14843 > FINAL_picta_depletion.bed
+
+#There are 287,348 contigs in the picta "assmbley", I will try using the largest 10,000 
+awk -F '\t' '{print $1}' FINAL_plant_enrichment.bed > temp.txt
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/NBI/seq_get.py --id_file temp.txt --input FINAL_plant.fna --output FINAL_picta_10000.fna
+
+awk '/^>/{if(s){print n"\t0\t"s} n=substr($0,2); s=0; next} {s+=length($0)} END{print n"\t0\t"s}' Cpic3.scaffolds.filtered.fasta | head -n 10000 | awk -F '\t' '{print $1}'  > temp.txt
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/NBI/seq_get.py --id_file temp.txt --input Cpic3.scaffolds.filtered.fasta --output temp.fasta
+cat temp.fasta >> FINAL_picta_10000.fna
+
+awk '/^>/{if(s){print n"\t0\t"s} n=substr($0,2); s=0; next} {s+=length($0)} END{print n"\t0\t"s}' FINAL_picta_10000.fna | tail -n 10000 > FINAL_picta_depletion_10000.bed
+
+#There are 287,348 contigs in the picta "assmbley", I will try using the largest 5,000 
+awk -F '\t' '{print $1}' FINAL_plant_enrichment.bed > temp.txt
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/NBI/seq_get.py --id_file temp.txt --input FINAL_plant.fna --output FINAL_picta_5000.fna
+
+awk '/^>/{if(s){print n"\t0\t"s} n=substr($0,2); s=0; next} {s+=length($0)} END{print n"\t0\t"s}' Cpic3.scaffolds.filtered.fasta | head -n 5000 | awk -F '\t' '{print $1}'  > temp.txt
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/NBI/seq_get.py --id_file temp.txt --input Cpic3.scaffolds.filtered.fasta --output temp.fasta
+cat temp.fasta >> FINAL_picta_5000.fna
+
+awk '/^>/{if(s){print n"\t0\t"s} n=substr($0,2); s=0; next} {s+=length($0)} END{print n"\t0\t"s}' FINAL_picta_5000.fna | tail -n 5000 > FINAL_picta_depletion_5000.bed
 ```
 
 ## Post-sequencing analysis  <a name="4"></a>
@@ -2003,9 +2042,15 @@ seqkit fq2fa \
 ```bash
 mkdir -p /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/1 
 mkdir -p /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/2 
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/3 
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/4 
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/5 
 
 ln -s /data/users/theaven/phytolasma/raw_data/minion/25A2/20260923-TOMH-CaMali-25a2-1/25a2/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/1/.
 ln -s /data/users/theaven/phytolasma/raw_data/minion/25A2/20260923_TOMH_CaMali_25a2_2/25a2/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/2/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/25A2/20261004_TOMH_CaMali_25A2_3/25a2/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/3/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/25A2/20261004_TOMH_CaMali_25A2_4/25a2/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/4/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/25A2/20261004_TomH_CaMali_25A2_5/25A2/*/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/5/.
 
 for Dir in $(ls -d /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/*); do
   Task=Dorado
@@ -2027,6 +2072,9 @@ done
 #Save space:
 rm -r /data/users/theaven/phytolasma/raw_data/minion/25A2/20260923-TOMH-CaMali-25a2-1
 rm -r /data/users/theaven/phytolasma/raw_data/minion/25A2/20260923_TOMH_CaMali_25a2_2
+rm -r /data/users/theaven/phytolasma/raw_data/minion/25A2/20261004_TOMH_CaMali_25A2_3
+rm -r /data/users/theaven/phytolasma/raw_data/minion/25A2/20261004_TOMH_CaMali_25A2_4
+rm -r /data/users/theaven/phytolasma/raw_data/minion/25A2/20261004_TomH_CaMali_25A2_5
 ```
 ```bash
 module load seqtk/1.4-gcc-12.3.0
@@ -2045,6 +2093,9 @@ done
 
 #172,403 reads >1,000bp for round 1
 #3,561 reads >1,000bp for round 2
+#125,587 reads >1,000bp for round 3
+#32,811 reads >1,000bp for round 4
+#41,180 reads >1,000bp for round 5
 ```
 
 ### Taxonomic classication of reads   <a name="61"></a>
@@ -2052,6 +2103,7 @@ done
 #### BWA-mem  <a name="62"></a>
 
 ```bash
+srun -p bioagri  -c 8 --mem 32G --pty bash
 module load anaconda3
 conda activate minimap2
 module load samtools/1.16.1
@@ -2062,13 +2114,14 @@ minimap2 -t 8 -ax map-ont \
     | samtools sort -@ 4 -o /data/users/theaven/phytolasma/raw_data/minion/25A2/aln.bam
 samtools index /data/users/theaven/phytolasma/raw_data/minion/25A2/aln.bam
 samtools view -c -F 4 /data/users/theaven/phytolasma/raw_data/minion/25A2/aln.bam
-#6,355
+#6,355 after 1st 2 rounds
+#12,844 after 5th round
 ```
 #### Kraken2  <a name="63"></a>
 
 Reads were taxonomically classificed with kraken2 to determine the proportion of on-target Phytoplasma mali reads
 ```bash
-cat /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/1/basecalls/SAMPLE.pass.fq.gz /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/2/basecalls/SAMPLE.pass.fq.gz > /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/combined.fq.gz
+cat /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/*/basecalls/SAMPLE.pass.fq.gz > /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/combined.fq.gz
 
 for reads in $(find /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/ -name 'combined.fq.gz' -type f); do
   Task=kraken
@@ -2087,8 +2140,9 @@ done
 
 sort -t$'\t' -k4,4nr /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt_by_length.txt 
 wc -l /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt_by_length.txt  #2,170,443
+wc -l /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt_by_length.txt  #4,008,348 +3,4,5
 ```
-Only ~1,240 reads are from Ca. P. mali:
+Only ~1,240 reads are from Ca. P. mali after the first 2 rounds:
 
 ![Kraken2 all read depletion .bed classifications for 25A2](figures/Screenshot_2026-09-29_154614.png)
 
@@ -2099,26 +2153,15 @@ Only ~1,240 reads are from Ca. P. mali:
 ***Phytoplasma taxonomy and unclassified reads only***
 
 ```bash
-grep 'unclassified' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep 'Bacteria' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep 'Bacillati' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep 'Bacillota' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep 'Mycoplasmatota' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep 'Mollicutes' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep 'Acholeplasmatales' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep 'Acholeplasmataceae' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep 'Candidatus' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep '16SrX' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep 'phytoplasma' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
-grep 'Phytoplasma' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
+grep 'Bacteria\|Bacillati\|Bacillota\|Mycoplasmatota\|Mollicutes\|Acholeplasmatales\|Acholeplasmataceae\|Candidatus\|16SrX\|phytoplasma\|Phytoplasma' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
 
 awk -F'\t' '
-$3 ~ /\(taxid (0|279890|2626865|196816|2609248|2626549|2623706|257493|2608915|2638842|33807|2614992|2618356|2647192|2639704|2627091|235627|2685287|2609269|2630922|185979|12333|2645622|2633795|2788091|33809|2608897|2623841|2631580|2622653|2632610|2613784|2646786|2638829|711328|2641185|2847305|2996318|2763321|2687300|241193|257487|2788787|329961|2620175|2634405|2624466|2624793|2619133|2565278|2593645|2642555|2635829|2614128|2609414|2638500|2624378|2640874|257496|1983111|2629879|1748548|2593640|196773|2617939|2615033|209473|2852324|2630389|2644528|36866|2608891|2622719|386847|2608889|39779|2644629|2646395|494603|196869|2627005|33811|2624949|2625037|2626815|2852375|2625242|2622732|2609666|2621901|2618217|2610897|2615202|2619925|2620239|2649294|2610881|2837824|2633591|2644121|2620435|2619493|2663824|641407|2650499|2633022|2642006|2626258|2636778|2619255|2615042|2794999|83889|2629616|2609279|325217|2703679|2629569|2644672|2615210|2608980|119067|2609290|2619833|2617518|338099|1609545|2637987|3080824|2617802|2636767|713063|2648731|1077831|2623750|2629175|2628724|2630693|889872|2614752|3143075|2641084|2624044|2637762|2615069|2615035|2593658|2644732|2632301|2615019|503183|185978|2618429|2624094|2630326|2628915|1500946|3079910|2626614|2631981|2624265|196858|2638319|2640945|880158|2638335|2627481|2632826|2593292|2647000|194690|2848178|2661612|2637179|196821|2619320|2645906|2636677|2613769|2621553|192944|114295|2626894|2614913|2624628|2643747|2762017|2593367|2637378|2647522|2630038|2837530|2613772|2636512|2637870|2627926|2609468|2611147|122612|196159|2614943|2637901|857474|91994|2961925|196198|2608887|2593676|2632669|2626047|2631404|0|2635139|2631705|2614952|2648997|2676525|2622553|2625466|2649714|2638727|2630295|2638520|2762021|663243|2614977|2620237|2640676|2643310|3048685|2|1783272|3373930|1879010|1239|344338|2231116|544448|658143|220137|1898209|2735562|2954383|327160|2954388|1446466|2952895|1389454|1705730|2807605|3107022|3101274|2044595|2052149|452471|1855377|1326980|1247023|1041504|1485666|3126526|1453429|2840689|2840693|511995|511435|2660703|3100546|3107047|2803731|2570586|3101022|1664265|3045160|2026714|928852|3042151|1921001|1618372|2838779|2785441|2026885|251538|3118169|251540|108080|1240471|203804|1964448|3042497|2608983|2172549|1454753|1618633|2561898|247481|1912860|273135|2856961|1202536|1202537|1202538|1202539|1202540|387662|114186|114185|3043617|1806891|3003348|3060593|2030808|459349|2250272|3121368|338645|2840736|2054173|1191162|2066024|1895663|3401927|2163644|2608985|1621989|3121372|2099670|2052315|2212470|2005002|3036122|1859133|3036123|3126740|3100608|393765|1834193|1834192|2230877|420336|1922217|3141250|2053554|2840815|1798018|3101301|1761012|3126528|2994492|3077957|2840833|1540872|1070130|3034016|1345115|2026747|2876573|2876572|2802285|295596|573658|3107137|3120109|2030809|1561003|3033792|1541959|3054210|2170669|360731|2030810|3121367|2447898|336810|2053565|1208919|1576550|1208920|2984322|204669|174633|699240|3066224|2053570|74015|2005262|3241576|2052151|1261131|658172|2952930|2951803|3038979|3069335|1318617|2932367|2927580|3107164|3101293|3100987|2866314|988779|3100917|1899017|2052166|3077948|2759911|1577789|1406512|2032688|2759912|2759913|3238636|3018274|591154|511746|1581557|2588535|1679002|2588536|1808979|2250274|3121366|2045217|3107178|3107179|3101292|3027808|1116213|346879|2594798|2565781|2978047|2518609|2162846|3388566|2933970|1160784|2093793|3064277|2975601|553981|1826872|1353260|1630141|1229908|1459636|1237085|1903276|1846278|1353246|1603555|2259672|3020900|2652173|453162|2052152|2364082|2035772|2840886|2497989|3107206|3101298|2818468|2053589|3101350|186490|1235990|3098669|244581|3033793|2518994|2762014|2982025|3121371|2563896|1388755|1002672|2024849|3230984|3230985|3230988|3230989|3230991|335992|2684113|2030811|2053688|2115978|2763338|85620|180978|35780|37692|47566|399025|2609813|69896|33926|1884913|573600|1884907|3416329|2026781|265317|3107218|3101276|3101277|91844|3400422|669502|1381133|3085104|1806508|264201|389348|3121375|1302376|3230995|472834|3107225|3101265|2738883|2720720|225148|535712|676208|2282149|2838777|2763515|2763517|386487|713059|2026720|2980174|95818|2726954|3048880|2943807|2601646|3043284|3121369|3121370|3101308|3107240|3101273|2608262|371608|2875962|1249480|2740404|2750080|946483|1410383|1748243|3414687|3100113|3065865|2847306|2792791|1166950|2738886|2508687|3080811|2799669|2951083|2053491|3066262|3066255|3077926|3139336|3113639|1346319|2596890|3095367|1133592|1177213|3107276|3101291|1759059|881286|2687299|3066219|2026803|2026804|2782163|1704307|2053527|3036252|355926|312019|2093355|517606|2109283|2501586|1985115|179883|200297|85630|2726361|419492|39647|2155)\)/ {
+$3 ~ /\(taxid (85630|85631|1898209|2726361|1783272|3373930|1879010|1239|2|2763338|85620|180978|35780|37692|47566|399025|2609813|69896|33926|131152|314317|419492|37628|31969|2231116|3076018|544448|39647|713063|0|344338|3036252|355926|312019|2093355|2220064|517606|2109283|2501586|1985115|179883|200297|220137|658143)\)/ {
     id=$2
     sub(/^>/, "", id)
     print id
 }' /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/kraken/output_nt.txt \
-> /data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes_read_ids.txt #274,806
+> /data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes_read_ids.txt #468,603
 
 seqkit grep -f /data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes_read_ids.txt \
     /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/combined.fq.gz \
@@ -2129,57 +2172,10 @@ seqkit stats \
 /data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/combined.fq.gz
 
 #file                                                                              format  type   num_seqs        sum_len  min_len  avg_len  max_len
-#/data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes.fq.gz  FASTQ   DNA     274,806    108,486,798        5    394.8   38,817
-#/data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/combined.fq.gz           FASTQ   DNA   2,170,443  1,650,814,576        5    760.6   52,949
-
-srun -p bioagri -J epi2me --nodes=1 --ntasks=1 --cpus-per-task=16 --mem 64G --pty bash
-module load nextflow/23.10.1-gcc-12.1.0
-module load apptainer/1.4.1-gcc-13.3.0-3coysxn
-
-mkdir -p /data/users/theaven/singularity/cache 
-mkdir -p /data/users/theaven/singularity/tmp
-mkdir -p /data/users/theaven/singularity/APPTAINERENV_TMPDIR
-mkdir -p /data/users/theaven/singularity/APPTAINERENV_NXF_TASK_WORKDIR
-mkdir -p /data/users/theaven/singularity/APPTAINERENV_NXF_DEBUG
-mkdir -p /data/users/theaven/singularity/tmp
-export TMPDIR=/data/users/theaven/singularity/tmp
-export TMP=/data/users/theaven/singularity/tmp
-export TEMP=/data/users/theaven/singularity/tmp
-export SINGULARITY_CACHEDIR=/data/users/theaven/singularity/cache 
-export SINGULARITY_TMPDIR=/data/users/theaven/singularity/tmp
-export APPTAINERENV_TMPDIR=/data/users/theaven/singularity/tmp
-export APPTAINERENV_TMP=/data/users/theaven/singularity/tmp
-export APPTAINERENV_TEMP=/data/users/theaven/singularity/tmp
-export APPTAINER_CACHEDIR=/data/users/theaven/singularity/cache
-export APPTAINER_TMPDIR=/data/users/theaven/singularity/tmp
-export APPTAINERENV_NXF_TASK_WORKDIR=/data/users/theaven/singularity/APPTAINERENV_NXF_TASK_WORKDIR
-export APPTAINERENV_NXF_DEBUG=/data/users/theaven/singularity/APPTAINERENV_NXF_DEBUG
-
-nextflow run epi2me-labs/wf-bacterial-genomes \
-  -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
-  --fastq '/data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes.fq.gz' \
-  --sample 25A2 \
-  --min_read_length 0 \
-  --max_coverage_plots 20 \
-  --out_dir /data/users/theaven/phytolasma/raw_data/minion/25A2/assembly/EPI2ME/phyto-noref \
-  --threads 16 \
-  -profile singularity \
-  -resume
-
-nextflow run epi2me-labs/wf-bacterial-genomes \
-    -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
-    --fastq '/data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes.fq.gz' \
-    --sample 25A2 \
-    --min_read_length 0 \
-    --max_coverage_plots 20 \
-    --reference_based_assembly \
-    --reference /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali.fasta \
-    --out_dir /data/users/theaven/phytolasma/raw_data/minion/25A2/assembly/EPI2ME/phyto-ref \
-    --threads 16 \
-    -profile singularity \
-    -resume
+#/data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes.fq.gz  FASTQ   DNA     468,603    175,161,781        5    373.8   25,870
+#/data/users/theaven/phytolasma/raw_data/minion/25A2/pod5/combined.fq.gz           FASTQ   DNA   4,008,348  3,495,478,364        5      872  441,739
 ```
-Based on the reference guided assembly the coverage of the phytoplasma genome with the ONT data very is low:
+Based on the reference guided assembly the coverage of the phytoplasma genome with the ONT data very is low with rounds 1 + 2:
 
 ![Reference guided assembly of 25A2](figures/Screenshot_2026-09-29_172558.png)
 
@@ -2212,7 +2208,31 @@ cat \
 seqkit stats \
 /data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes+.fq.gz
 #file                                                                               format  type  num_seqs      sum_len  min_len  avg_len  max_len
-#/data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes+.fq.gz  FASTQ   DNA    277,133  111,849,277        5    403.6   45,523
+#/data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes+.fq.gz  FASTQ   DNA    473,768  205,297,569        5    433.3  440,897
+
+
+srun -p bioagri -J epi2me --nodes=1 --ntasks=1 --cpus-per-task=16 --mem 64G --pty bash
+module load nextflow/23.10.1-gcc-12.1.0
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+
+mkdir -p /data/users/theaven/singularity/cache 
+mkdir -p /data/users/theaven/singularity/tmp
+mkdir -p /data/users/theaven/singularity/APPTAINERENV_TMPDIR
+mkdir -p /data/users/theaven/singularity/APPTAINERENV_NXF_TASK_WORKDIR
+mkdir -p /data/users/theaven/singularity/APPTAINERENV_NXF_DEBUG
+mkdir -p /data/users/theaven/singularity/tmp
+export TMPDIR=/data/users/theaven/singularity/tmp
+export TMP=/data/users/theaven/singularity/tmp
+export TEMP=/data/users/theaven/singularity/tmp
+export SINGULARITY_CACHEDIR=/data/users/theaven/singularity/cache 
+export SINGULARITY_TMPDIR=/data/users/theaven/singularity/tmp
+export APPTAINERENV_TMPDIR=/data/users/theaven/singularity/tmp
+export APPTAINERENV_TMP=/data/users/theaven/singularity/tmp
+export APPTAINERENV_TEMP=/data/users/theaven/singularity/tmp
+export APPTAINER_CACHEDIR=/data/users/theaven/singularity/cache
+export APPTAINER_TMPDIR=/data/users/theaven/singularity/tmp
+export APPTAINERENV_NXF_TASK_WORKDIR=/data/users/theaven/singularity/APPTAINERENV_NXF_TASK_WORKDIR
+export APPTAINERENV_NXF_DEBUG=/data/users/theaven/singularity/APPTAINERENV_NXF_DEBUG
 
 nextflow run epi2me-labs/wf-bacterial-genomes \
   -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
@@ -2220,14 +2240,43 @@ nextflow run epi2me-labs/wf-bacterial-genomes \
   --sample 25A2 \
   --min_read_length 0 \
   --max_coverage_plots 20 \
-  --out_dir /data/users/theaven/phytolasma/raw_data/minion/25A2/assembly/EPI2ME/phyto+-noref \
+  --out_dir /data/users/theaven/phytolasma/raw_data/minion/25A2/assembly/EPI2ME/phyto-noref \
   --threads 16 \
   -profile singularity \
   -resume
-```
 
-## Sample 28UP
-### Basecalling
+nextflow run epi2me-labs/wf-bacterial-genomes \
+  -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
+  --fastq '/data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes+.fq.gz' \
+  --sample 25A2 \
+  --min_read_length 700 \
+  --max_coverage_plots 20 \
+  --out_dir /data/users/theaven/phytolasma/raw_data/minion/25A2/assembly/EPI2ME/phyto-noref-700 \
+  --threads 16 \
+  -profile singularity \
+  -resume
+
+nextflow run epi2me-labs/wf-bacterial-genomes \
+    -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
+    --fastq '/data/users/theaven/phytolasma/raw_data/minion/25A2/phytoplasma_mollicutes+.fq.gz' \
+    --sample 25A2 \
+    --min_read_length 0 \
+    --max_coverage_plots 20 \
+    --reference_based_assembly \
+    --reference /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali.fasta \
+    --out_dir /data/users/theaven/phytolasma/raw_data/minion/25A2/assembly/EPI2ME/phyto-ref \
+    --threads 16 \
+    -profile singularity \
+    -resume
+```
+With rounds 1,2,3,4,5 in references guided:
+
+![Reference guided assembly of 25A2](figures/Screenshot_2026-10-15_144403.png)
+
+
+## Sample 28UP <a name="73"></a>
+
+### Basecalling <a name="74"></a>
 
 ```bash
 mkdir -p /data/users/theaven/phytolasma/raw_data/minion/28UP/pod5/1 
@@ -2272,9 +2321,9 @@ done
 #440,885 reads >1,000bp 
 ```
 
-### Taxonomic classication of reads 
+### Taxonomic classication of reads  <a name="75"></a>
 
-#### BWA-mem  
+#### BWA-mem  <a name="76"></a>
 
 ```bash
 srun -p bioagri  -c 8 --mem 32G --pty bash
@@ -2297,7 +2346,7 @@ samtools depth \
 #Average depth: 70.6736
 ```
 
-#### Kraken2  
+#### Kraken2  <a name="77"></a> 
 
 Reads were taxonomically classificed with kraken2 to determine the proportion of on-target Phytoplasma mali reads
 ```bash
@@ -2344,9 +2393,9 @@ Looking at the distribution of read lengths for phytoplasma and apple - which we
 ![Distribution of read lengths for apple](figures/Malus_domestica_distribution.png)
 ![Distribution of read lengths for phytoplasma](figures/phytoplasma_mali_distribution.png)
 
-### Genome assembly
+### Genome assembly  <a name="78"></a> 
 
-#### EPI2ME - wf-bacterial-genomes
+#### EPI2ME - wf-bacterial-genomes  <a name="79"></a> 
 
 ***Phytoplasma taxonomy and unclassified reads only***
 
@@ -2491,7 +2540,7 @@ apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/cluste
 gnuplot "$name"_x.gp
 ```
 
-#### Ragtag
+#### Ragtag  <a name="80"></a> 
 
 ```bash
 module load anaconda3 
@@ -2556,7 +2605,7 @@ apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/cluste
 gnuplot "$name"_x.gp
 ```
 
-#### Myloasm
+#### Myloasm  <a name="81"></a> 
 
 ```bash
 srun -p bioagri -J myloasm --nodes=1 --ntasks=1 --cpus-per-task=16 --mem 64G --pty bash
@@ -2595,7 +2644,7 @@ apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/cluste
 gnuplot "$name"_x.gp
 ```
 
-#### Autocycler
+#### Autocycler  <a name="82"></a> 
 
 ```bash
 srun -p bioagri -J autocycler --nodes=1 --ntasks=1 --cpus-per-task=16 --mem 64G --pty bash
@@ -2781,6 +2830,7 @@ gnuplot "$name"_x.gp
 done
 ```
 
+# Re-Sequencing of Erika samples <a name="72"></a>
 
 ## Sample AT2-62B <a name="66"></a>
 
