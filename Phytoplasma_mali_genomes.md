@@ -45,6 +45,16 @@
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.3.2 [Ragtag](#80)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.3.3 [Myloasm](#81)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.6.3.4 [Autocycler](#82)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;1.7 [***Sample 19A-F06***](#83)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7.1 [Basecalling](#84)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7.2 [Taxonomic classication of reads](#85)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7.2.1 [BWA-mem](#86)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7.2.2 [Kraken2](#87)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7.3 [Genome assemlby](#88)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7.3.1 [EPI2ME - wf-bacterial genomes](#89)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7.3.2 [Ragtag](#90)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7.3.3 [Myloasm](#91)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.7.3.4 [Autocycler](#92)<br>
 2. [Re-Sequencing of Erika samples](#72)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;2.1 [***Sample AT2-62B***](#66)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.1 [Basecalling](#67)<br>
@@ -2828,6 +2838,639 @@ gnuplot "$name".gp
 apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
 gnuplot "$name"_x.gp
 done
+```
+
+## Sample 19A-F06 <a name="83"></a>
+
+### Basecalling <a name="84"></a>
+
+```bash
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/19A-F06/pod5/1 
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/19A-F06/pod5/2 
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/19A-F06/pod5/3 
+
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A-F06/20261013_TOMH_CaMali_19A-F06_1/19a-f06/20261013_1503_MN41812_FBH75539_c62faa3e/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A-F06/pod5/1/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A-F06/20261013_TOMH_CaMali_19A-F06_2/19a-f06/20261015_1700_MN41812_FBH75539_f24696fb/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A-F06/pod5/2/.
+ln -s /data/users/theaven/phytolasma/raw_data/minion/19A-F06/20261013_TOMH_CaMali_19A-F06_3/19a-f06/20261016_2329_MN41812_FBH75539_596523b6/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/19A-F06/pod5/3/.
+
+for Dir in $(ls -d /data/users/theaven/phytolasma/raw_data/minion/19A-F06/pod5/*); do
+  Task=Dorado
+  InDir="$Dir"
+  OutDir=$Dir/basecalls
+  OutFmt=fastq
+  Barcode=NA
+  Modification_model=NA
+  ExpectedOutput="$OutDir"/out.fastq
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_dorado.sh "$InDir" "$OutDir" "$OutFmt" "$Barcode" "$Modification_model")
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done
+
+#Save space:
+rm -r /data/users/theaven/phytolasma/raw_data/minion/19A-F06/20261013_TOMH_CaMali_19A-F06_1
+rm -r /data/users/theaven/phytolasma/raw_data/minion/19A-F06/20261013_TOMH_CaMali_19A-F06_2
+rm -r /data/users/theaven/phytolasma/raw_data/minion/19A-F06/20261013_TOMH_CaMali_19A-F06_3
+
+cat /data/users/theaven/phytolasma/raw_data/minion/19A-F06/pod5/*/basecalls/SAMPLE.pass.fq.gz > /data/users/theaven/phytolasma/raw_data/minion/19A-F06/all_SAMPLE.pass.fq.gz
+```
+```bash
+module load anaconda3
+module load seqtk/1.4-gcc-12.3.0
+conda activate seqkit
+
+for file in /data/users/theaven/phytolasma/raw_data/minion/19A-F06/all_SAMPLE.pass.fq.gz; do
+seqtk seq -a "$file" | awk '/^>/{split($0,a," "); print ">"a[1]; next}{print}' > "${file%.fq.gz}.fasta"
+
+seqkit seq -m 1000 "${file%.fq.gz}.fasta" > "${file%.fq.gz}_long.fasta"
+
+seqkit seq -m 500 "${file%.fq.gz}.fasta" > "${file%.fq.gz}_med.fasta"
+
+echo "${file%.fq.gz}_long.fasta"
+grep '>' "${file%.fq.gz}_long.fasta" | wc -l
+done
+
+#780,561 reads >1,000bp 
+```
+
+### Taxonomic classication of reads <a name="85"></a>
+
+#### BWA-mem   <a name="86"></a>
+
+```bash
+srun -p bioagri  -c 8 --mem 32G --pty bash
+
+module load anaconda3
+conda activate minimap2
+module load samtools/1.16.1
+
+minimap2 -t 8 -ax map-ont \
+    /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali.fasta \
+    /data/users/theaven/phytolasma/raw_data/minion/19A-F06/pod5/*/basecalls/SAMPLE.pass.fq.gz \
+    | samtools sort -@ 4 -o /data/users/theaven/phytolasma/raw_data/minion/19A-F06/aln.bam
+samtools index /data/users/theaven/phytolasma/raw_data/minion/19A-F06/aln.bam
+samtools view -c -F 4 /data/users/theaven/phytolasma/raw_data/minion/19A-F06/aln.bam
+#220,112
+
+samtools depth \
+    /data/users/theaven/phytolasma/raw_data/minion/19A-F06/aln.bam \
+    | awk '{sum += $3; n++} END {if (n > 0) print "Average depth:", sum/n}'
+#Average depth: 344.297
+```
+
+#### Kraken2  <a name="87"></a>
+
+Reads were taxonomically classificed with kraken2 to determine the proportion of on-target Phytoplasma mali reads
+```bash
+for reads in $(find /data/users/theaven/phytolasma/raw_data/minion/19A-F06/ -name 'all_SAMPLE.pass.fq.gz' -type f); do
+  Task=kraken
+  ID=$(echo $reads | cut -d '/' -f8,10 | sed 's@/@_@g')
+  Database=/data/databases/kraken2/2025-02-04/k2_core_nt_20250609
+  OutDir="$(dirname $reads)"/"$Task"
+  ExpectedOutput="$OutDir"/report_nt.txt
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_kraken.sh "$reads" "$OutDir" "$Database")
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done #269754
+
+sort -t$'\t' -k4,4nr /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt.txt > /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt_by_length.txt 
+wc -l /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt_by_length.txt  #9,201,720
+grep 'Candidatus Phytoplasma mali' /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt_by_length.txt | awk -F'\t' 'NR==1 {max=$4} $4>max {max=$4} END {print max}' #99,222
+grep 'Candidatus Phytoplasma mali' /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt_by_length.txt | awk -F'\t' '$4 > 1000' | wc -l #47,676
+grep 'Candidatus Phytoplasma mali' /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt_by_length.txt | awk -F'\t' '{sum += $4; n++} END {print sum/n}' #1477.19
+grep 'Candidatus Phytoplasma mali' /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt_by_length.txt | awk -F'\t' '$4 > 1000' | awk -F'\t' '{sum += $4; n++} END {print sum/n}' #3821.53
+```
+![Kraken2 classifications of 19A-F06](figures/Screenshot_2026-10-19_220007.png)
+
+There are 47,767 phytoplasma reads >1,000bp in total, average length 3822, with the longest 99,222bp.
+
+```bash
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/unibz/plot_taxon_distribution.py \
+    --input /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt.txt \
+    --taxon "Candidatus Phytoplasma mali (taxid 37692)" \
+    --output /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/phytoplasma_mali_distribution.png
+#Reads plotted: 154791
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/unibz/plot_taxon_distribution.py \
+    --input /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt.txt \
+    --taxon "Cacopsylla picta (taxid 1522058)" \
+    --output /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/Cacopsylla_picta_distribution.png
+#Reads plotted: 68600
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/unibz/plot_taxon_distribution.py \
+    --input /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt.txt \
+    --taxon "Cacopsylla melanoneura (taxid 428564)" \
+    --output /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/Cacopsylla_melanoneura_distribution.png
+#Reads plotted: 19585
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven ~/git_repos/Containers/python3.sif python ~/git_repos/Scripts/unibz/plot_taxon_distribution.py \
+    --input /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt.txt \
+    --taxon "Diaphorina citri (taxid 121845)" \
+    --output /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/Diaphorina_citri_distribution.png
+#Reads plotted: 510996
+```
+
+More reads are classified to Diaphorina citri than to the host Cacopsylla picta. The peak read length for phytoplasma and picta reads is similar; however, the peak for Diaphorina nad melanoneura reads is higher, as seen for apple in palnt samples.
+
+![Distribution of read lengths for phytoplasma and host insect](figures/19a-f06.png)
+
+### Genome assembly <a name="88"></a>
+
+#### EPI2ME - wf-bacterial-genomes <a name="89"></a>
+
+***Phytoplasma taxonomy and unclassified reads only***
+
+```bash
+grep 'unclassified\|Bacteria\|Bacillati\|Bacillota\|Mycoplasmatota\|Mollicutes\|Acholeplasmatales\|Acholeplasmataceae\|Candidatus\|16SrX\|phytoplasma\|Phytoplasma' /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt.txt | awk -F'\t' '{print $3}' | sort | uniq
+
+# There are MANY Candidatus taxids
+awk -F'\t' '
+$3 ~ /\(taxid (713887|2840687|2840689|2840693|2652803|511995|511435|2660703|3100546|3401925|3107047|3023558|3101300|673862|2803731|2570586|3101022|1664265|3045160|2026714|928852|3072974|3042151|1921001|1618372|2053521|437022|2838779|2785441|2026885|2501609|2250122|67810|251538|3118169|251540|108080|1240471|203907|101534|203804|859654|2741701|2838508|2518322|2714833|1964448|3042497|3121376|3121365|3414509|2608983|2172549|311458|1454753|1618633|2026716|2561898|247481|1912860|2856961|1202536|1202537|2661587|1202538|1202539|1202540|387662|114186|114185|3043617|2715735|1806891|3003348|2066483|3121364|3060593|2030808|456828|459349|2250272|3121368|2919598|2053538|338645|2840736|2840752|2054173|1191162|2601575|2066024|2080303|1895663|2053542|3127115|2163644|2044594|2891165|2608985|1621989|471827|1725232|3121372|2099670|2052315|1076629|2212470|2005002|3036122|3062594|1859133|2202844|3036123|3082418|3126740|1859128|3344825|62101|3100608|1193729|1401328|2760055|1408204|1837115|393765|3077946|1834193|1834192|1834167|2230877|2230878|1834189|2840790|1927128|3423628|3277344|3277338|420336|1922217|3141250|2838581|2053554|2044591|2795018|3085328|1448929|1608628|2840815|1798018|1920990|1802984|3101301|1925548|1761012|2107591|653937|3126528|2994492|1878942|1927833|2840833|2137880|2838610|1177218|2053557|2282145|1862133|1540872|2806609|1070130|3034016|672795|1345115|2026747|2876573|2876572|3053649|2802285|295596|3132033|3132032|1778263|573234|573658|573657|3107137|3120109|2030809|2707344|2558174|2026736|1561003|3033792|476281|3242468|1541959|247490|3054210|2170669|360731|1495769|2030810|2820270|3121367|2447898|336810|2053565|233181|33056|1208919|1208921|1576550|1208920|33055|2984322|374847|204669|174633|1562256|699240|3066224|3077949|2053570|74015|2005262|3241576|2052151|34020|1261131|34021|1968796|658172|2840848|2952930|2951803|3038979|3069335|451514|1318617|1920749|2932367|2932362|2927580|3107164|3101293|3100987|2866314|988779|3100917|1742636|1899017|2052166|3077948|3066221|2759911|2848114|1577789|2874846|1406512|2517205|2691037|2691038|2032688|2759912|2759913|1577791|2977098|1867261|3238636|3018274|591154|511746|3108543|671143|1581557|2588535|1679002|1581680|2588536|1808979|2250274|2282148|3121366|3121374|2862749|234827|2213196|1778264|2905967|2200854|1048758|2045217|3107178|3107179|3101292|3096687|2943498|3027808|1212765|3004105|346879|2725942|2594798|2565781|2978047|2978046|2518609|2162846|1884916|1884915|1884634|1577684|3388566|2093824|3393757|2933970|2899133|2902632|2093823|1971485|1343077|1160784|3043262|2093793|3064277|3004500|2601668|2975601|2705534|2705533|2942908|2796146|553981|3076529|498374|1798806|1826872|1353260|1630141|1898749|1410606|1229908|1229909|2508726|1459636|1237085|1903276|1846278|1353246|1603555|2259672|1825023|3020900|1715989|2652173|3020899|2608984|453162|2182327|2559597|2750078|2052152|1414854|2364082|2994574|1841599|91604|985867|2035772|2840886|2497989|3107206|3101298|2818468|2026773|2053589|3056733|3101350|3056650|186490|1235990|3098669|244581|3033793|2518994|2829509|2762014|2982025|3121371|2026776|54526|198252|2563896|2268451|1388755|1002672|1977864|1977865|2024849|3230993|3230979|3230980|3230981|3230982|3230984|3230994|3230985|3230986|3230987|3230988|3230989|3230990|3230991|3230992|198251|335992|2684113|2030811|2053688|1735162|1458461|28176|2115978|348436|2763338|3040332|85620|2754999|59748|102261|180978|72990|338604|35780|35773|37692|203274|479893|47565|47566|399025|2609813|69896|230565|33926|35776|131152|135727|2529394|1884914|1884913|1884904|1884907|1884905|3416329|2026781|265317|3107216|3107218|3101307|3101276|3107219|3101277|91844|2994561|3400422|669502|1381133|1987921|2864218|1177216|3085104|1806508|264201|389348|2716812|1715285|3121375|1302376|3121377|3399801|1125411|1427364|3230995|3230996|3230997|3230998|488538|472834|3107225|3101265|3077956|138073|2738883|2720720|225148|292833|535712|676208|401619|428411|428412|1719125|2282149|2838777|2763515|2763517|386487|3041526|1541743|1619070|713059|2572087|1394711|2026720|2056494|2080739|95818|2890869|1917697|2726954|3048880|1081631|3059525|2943807|2601646|2342|3121369|3121370|1963034|3101308|3107240|3101273|2608262|1076626|371608|2875962|1249480|2740404|2740405|2250252|2750080|946483|3234017|2293317|1410383|1748243|3414687|1680828|3100113|3080823|3065865|3096260|2847306|1913444|2792791|1166950|2738886|3019443|1705394|2508687|2823902|3080811|2799669|2968880|2951083|2053491|3066262|3077928|3066272|3066259|3066274|3066271|3139332|3077926|3139336|3077925|3066275|3066260|3113639|2029164|3139337|3066258|3139334|1902579|189385|1346319|3132031|2596890|3095367|2053634|1133592|2018052|1177211|1177213|1930593|3107276|3101291|412965|2732590|2732587|1759059|881286|2687299|3100457|3066219|1415657|1940138|138072|3077954|568987|2026803|1618600|2026804|1845000|1619007|2782163|1704307|1903058|3076528|3077951|2053527|1780308|300288|529700|404133|1081084|37369|2859068|915159|1194174|2588482|640328|2032755|1423337|314317|1572847|3081162|3081163|37628|31969|2025840|2231116|3075149|3076018|3074432|544448|2067818|39647|39648|2080768|110813|2155|138647|1042542|1250301|303537|146897|420408|980422|1163765|633143|741084|2638829|711328|2641185|2633577|2632605|3099330|3066220|2013823|2725944|2647897|3098986|3072908|2943805|2847305|2996318|2763321|2687300|1609545|713063|0|344338|363504|2501594|1664347|3036252|355926|312019|2682970|2093355|2220064|1659702|517606|2109283|2501586|1985115|179883|200297|2014372|220137|658143)\)/ {
+    id=$2
+    sub(/^>/, "", id)
+    print id
+}' /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt.txt \
+> /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/phytoplasma_mollicutes_read_ids.txt #4,957,337
+
+samtools view -F 4 \
+    /data/users/theaven/phytolasma/raw_data/minion/19A-F06/aln.bam \
+    | cut -f1 \
+    | sort -u \
+    > /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mapped_read_ids.txt
+
+cat \
+    /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mapped_read_ids.txt \
+    /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/phytoplasma_mollicutes_read_ids.txt \
+    | sort -u \
+    > /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+_read_ids.txt
+
+seqkit grep -f /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+_read_ids.txt \
+    /data/users/theaven/phytolasma/raw_data/minion/19A-F06/all_SAMPLE.pass.fq.gz \
+    -o /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fq.gz
+
+seqkit stats \
+/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fq.gz
+#file                                                                                  format  type   num_seqs        sum_len  min_len  avg_len  max_len
+#/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fq.gz  FASTQ   DNA   4,970,172  1,931,283,586        5    388.6  174,669
+
+srun -p bioagri -J epi2me --nodes=1 --ntasks=1 --cpus-per-task=16 --mem 64G --pty bash
+module load nextflow/23.10.1-gcc-12.1.0
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+
+mkdir -p /data/users/theaven/singularity/cache 
+mkdir -p /data/users/theaven/singularity/tmp
+mkdir -p /data/users/theaven/singularity/APPTAINERENV_TMPDIR
+mkdir -p /data/users/theaven/singularity/APPTAINERENV_NXF_TASK_WORKDIR
+mkdir -p /data/users/theaven/singularity/APPTAINERENV_NXF_DEBUG
+mkdir -p /data/users/theaven/singularity/tmp
+export TMPDIR=/data/users/theaven/singularity/tmp
+export TMP=/data/users/theaven/singularity/tmp
+export TEMP=/data/users/theaven/singularity/tmp
+export SINGULARITY_CACHEDIR=/data/users/theaven/singularity/cache 
+export SINGULARITY_TMPDIR=/data/users/theaven/singularity/tmp
+export APPTAINERENV_TMPDIR=/data/users/theaven/singularity/tmp
+export APPTAINERENV_TMP=/data/users/theaven/singularity/tmp
+export APPTAINERENV_TEMP=/data/users/theaven/singularity/tmp
+export APPTAINER_CACHEDIR=/data/users/theaven/singularity/cache
+export APPTAINER_TMPDIR=/data/users/theaven/singularity/tmp
+export APPTAINERENV_NXF_TASK_WORKDIR=/data/users/theaven/singularity/APPTAINERENV_NXF_TASK_WORKDIR
+export APPTAINERENV_NXF_DEBUG=/data/users/theaven/singularity/APPTAINERENV_NXF_DEBUG
+
+nextflow run epi2me-labs/wf-bacterial-genomes \
+  -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
+  --fastq '/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fq.gz' \
+  --sample 19A-F06 \
+  --min_read_length 0 \
+  --max_coverage_plots 20 \
+  --out_dir /data/users/theaven/phytolasma/raw_data/minion/19A-F06/assembly/EPI2ME/phyto-noref \
+  --threads 16 \
+  -profile singularity \
+  -resume
+
+nextflow run epi2me-labs/wf-bacterial-genomes \
+  -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
+  --fastq '/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fq.gz' \
+  --sample 19A-F06 \
+  --min_read_length 700 \
+  --max_coverage_plots 20 \
+  --out_dir /data/users/theaven/phytolasma/raw_data/minion/19A-F06/assembly/EPI2ME/phyto-noref-700 \
+  --threads 16 \
+  -profile singularity \
+  -resume
+
+nextflow run epi2me-labs/wf-bacterial-genomes \
+    -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
+    --fastq '/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fq.gz' \
+    --sample 19A-F06 \
+    --min_read_length 0 \
+    --max_coverage_plots 20 \
+    --reference_based_assembly \
+    --reference /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali.fasta \
+    --out_dir /data/users/theaven/phytolasma/raw_data/minion/19A-F06/assembly/EPI2ME/phyto-ref \
+    --threads 16 \
+    -profile singularity \
+    -resume
+
+#Without non-phytoplasma Candidatus assignments
+awk -F'\t' '
+$3 ~ /\(taxid (85630|85632|85634|590438|1898209|2146|614032|927614|35779|1783272|3373930|1879010|1239|1783234|629431|2|663367|85647|1159013|35778|348436|2763338|3040332|85620|2754999|59748|102261|180978|72990|338604|35780|35773|37692|203274|479893|47565|47566|399025|2609813|69896|230565|33926|35776|131152|135727|1780308|300288|529700|404133|1081084|37369|2859068|915159|1194174|2588482|640328|2032755|1423337|314317|1572847|3081162|3081163|37628|31969|2025840|2231116|3075149|3076018|3074432|544448|2067818|39647|39648|2080768|110813|2155|138647|1042542|1250301|303537|146897|420408|980422|1163765|633143|741084|1609545|713063|0|344338|220137|658143)\)/ {
+    id=$2
+    sub(/^>/, "", id)
+    print id
+}' /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/output_nt.txt \
+> /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/phytoplasma_mollicutes_read_ids2.txt #4,901,410
+
+cat \
+    /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mapped_read_ids.txt \
+    /data/users/theaven/phytolasma/raw_data/minion/19A-F06/kraken/phytoplasma_mollicutes_read_ids2.txt \
+    | sort -u \
+    > /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+_read_ids2.txt
+
+seqkit grep -f /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+_read_ids2.txt \
+    /data/users/theaven/phytolasma/raw_data/minion/19A-F06/all_SAMPLE.pass.fq.gz \
+    -o /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+2.fq.gz
+
+seqkit stats \
+/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+2.fq.gz
+#file                                                                                   format  type   num_seqs        sum_len  min_len  avg_len  max_len
+#/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+2.fq.gz  FASTQ   DNA   4,915,457  1,877,132,298        5    381.9  174,669
+
+nextflow run epi2me-labs/wf-bacterial-genomes \
+  -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
+  --fastq '/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+2.fq.gz' \
+  --sample 19A-F06 \
+  --min_read_length 0 \
+  --max_coverage_plots 20 \
+  --out_dir /data/users/theaven/phytolasma/raw_data/minion/19A-F06/assembly/EPI2ME/phyto-noref-0-2 \
+  --threads 16 \
+  -profile singularity \
+  -resume
+
+nextflow run epi2me-labs/wf-bacterial-genomes \
+  -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
+  --fastq '/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+2.fq.gz' \
+  --sample 19A-F06 \
+  --min_read_length 700 \
+  --max_coverage_plots 20 \
+  --out_dir /data/users/theaven/phytolasma/raw_data/minion/19A-F06/assembly/EPI2ME/phyto-noref-700-2 \
+  --threads 16 \
+  -profile singularity \
+  -resume
+
+nextflow run epi2me-labs/wf-bacterial-genomes \
+    -c /data/users/theaven/phytolasma/nextflow_tmp2.config \
+    --fastq '/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+2.fq.gz' \
+    --sample 19A-F06 \
+    --min_read_length 0 \
+    --max_coverage_plots 20 \
+    --reference_based_assembly \
+    --reference /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali.fasta \
+    --out_dir /data/users/theaven/phytolasma/raw_data/minion/19A-F06/assembly/EPI2ME/phyto-ref-2 \
+    --threads 16 \
+    -profile singularity \
+    -resume
+```
+
+```bash
+module load gnuplot/6.0.0-gcc-12.3.0-637ora5
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+
+for Dir in /data/users/theaven/phytolasma/raw_data/minion/19A-F06/assembly/EPI2ME/*; do
+cd "$Dir"
+gunzip -c 19A-F06.medaka.fasta.gz > 19A-F06.medaka.fasta
+Query=19A-F06.medaka.fasta
+reference=19A-F06.medaka.fasta
+name=$(echo "$Dir" | cut -d '/' -f8,10,11 | sed 's@/@_@g')_v_$(echo "$Dir" | cut -d '/' -f8,10,11 | sed 's@/@-@g')
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.fna
+name=GCF_000026205_v_$(echo "$Dir" | cut -d '/' -f8,10,11 | sed 's@/@-@g')
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/raw_data/minion/19A/assembly/EPI2ME/phyto-noref/ragtag/ragtag_scaffold/ragtag.scaffold.fasta
+name=19A-phyto-noref-rag-scaf_v_$(echo "$Dir" | cut -d '/' -f8,10,11 | sed 's@/@-@g')
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/GCA_050928165.1_ASM5092816v1_genomic.fna
+name=carsonella-GCA_050928165.1_v_$(echo "$Dir" | cut -d '/' -f8,10,11 | sed 's@/@-@g')
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+done
+```
+
+#### Ragtag <a name="90"></a>
+
+```bash
+module load anaconda3 
+conda activate seqkit
+seqkit fq2fa \
+    /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fq.gz \
+    -o /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fasta
+
+for Assembly in /data/users/theaven/phytolasma/raw_data/minion/19A-F06/assembly/EPI2ME/*/19A-F06.medaka.fasta; do
+OutDir=$(dirname "$Assembly")/ragtag
+mkdir $OutDir
+cd $OutDir
+
+conda activate ragtag
+ragtag.py correct /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali.fasta "$Assembly" -q 10 -f 500 -d 500 -b 1000 -o $OutDir -t 1 --aligner minimap2
+
+ragtag.py scaffold /data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali.fasta "$OutDir"/ragtag.correct.fasta -o "$OutDir"/ragtag_scaffold
+
+conda activate tgsgapcloser
+tgsgapcloser \
+    --scaff "$OutDir"/ragtag_scaffold/ragtag.scaffold.fasta \
+    --reads /data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fasta \
+    --output "$OutDir"/ragtag_scaffold/tgsgapcloser \
+    --ne \
+    --tgstype ont \
+    --min_nread 10 \
+    --thread 1
+done
+```
+
+
+```bash
+module load gnuplot/6.0.0-gcc-12.3.0-637ora5
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+
+for Dir in /data/users/theaven/phytolasma/raw_data/minion/19A-F06/assembly/EPI2ME/*/ragtag/ragtag_scaffold; do
+cd "$Dir"
+Query=tgsgapcloser.contig
+reference=tgsgapcloser.contig
+name=$(echo "$Dir" | cut -d '/' -f8,10,11 | sed 's@/@_@g')-ragtag_v_$(echo "$Dir" | cut -d '/' -f8,10,11 | sed 's@/@-@g')-ragtag
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.fna
+name=GCF_000026205_v_$(echo "$Dir" | cut -d '/' -f8,10,11 | sed 's@/@-@g')-ragtag
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/raw_data/minion/19A/assembly/EPI2ME/phyto-noref/ragtag/ragtag_scaffold/ragtag.scaffold.fasta
+name=19A-phyto-noref-rag-scaf_v_$(echo "$Dir" | cut -d '/' -f8,10,11 | sed 's@/@-@g')-ragtag
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/GCA_050928165.1_ASM5092816v1_genomic.fna
+name=carsonella-GCA_050928165.1_v_$(echo "$Dir" | cut -d '/' -f8,10,11 | sed 's@/@-@g')-ragtag
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+done
+```
+
+#### Myloasm <a name="91"></a>
+
+```bash
+srun -p bioagri -J myloasm --nodes=1 --ntasks=1 --cpus-per-task=16 --mem 64G --pty bash
+module load anaconda3
+conda activate myloasm
+
+Reads=/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fq.gz
+OutDir=/data/users/theaven/phytolasma/raw_data/minion/19A-F06/myloasm
+mkdir "$OutDir"
+myloasm -o "$OutDir" -t 16 --kmc --kmc-ram 64 --clean-dir -c 11 --quality-value-cutoff 90 --min-ol 500 --high-freq-kmer-threshold 100000 --min-reads-contig 2 --singleton-coverage-threshold 3 --secondary-coverage-threshold 1 --dereplication-ani 99 --dereplication-length 600000 --new-polish-trimming --min-qual-polishing 75 --kmer-size 21 "$Reads"
+
+cd "$OutDir"
+mylotools report --output report_and_plots
+ls report_and_plots/contig_summary_report.html
+
+for Dir in /data/users/theaven/phytolasma/raw_data/minion/19A-F06/myloasm; do
+cd "$Dir"
+Query=assembly_primary.fa
+reference=assembly_primary.fa
+name=$(echo "$Dir" | cut -d '/' -f8,9 | sed 's@/@_@g')_v_$(echo "$Dir" | cut -d '/' -f8,9 | sed 's@/@-@g')
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.fna
+name=GCF_000026205_v_$(echo "$Dir" | cut -d '/' -f8,9 | sed 's@/@-@g')
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/raw_data/minion/19A/assembly/EPI2ME/phyto-noref/ragtag/ragtag_scaffold/ragtag.scaffold.fasta
+name=19A-phyto-noref-rag-scaf_v_$(echo "$Dir" | cut -d '/' -f8,9 | sed 's@/@-@g')
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/GCA_050928165.1_ASM5092816v1_genomic.fna
+name=carsonella-GCA_050928165.1_v_$(echo "$Dir" | cut -d '/' -f8,9 | sed 's@/@-@g')
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+done
+```
+
+#### Autocycler   <a name="92"></a>
+
+```bash
+srun -p bioagri -J autocycler --nodes=1 --ntasks=1 --cpus-per-task=16 --mem 64G --pty bash
+module load anaconda3
+
+Reads=/data/users/theaven/phytolasma/raw_data/minion/19A-F06/phytoplasma_mollicutes+.fq.gz
+Subsets=/data/users/theaven/phytolasma/raw_data/minion/19A-F06/autocycler/read_subsets
+mkdir -p "$Subsets"
+cd "$Subsets"
+cd ..
+
+conda activate filtlong
+filtlong --keep_percent 95 "$Reads" > Reads_95.fq
+
+conda activate /data/users/theaven/conda/envs/autocycler
+
+autocycler subsample --reads Reads_95.fq --out_dir "$Subsets" --count 4 --genome_size 600000 --min_read_depth 150 
+
+mkdir assemblies
+for assembler in canu flye metamdbg miniasm necat nextdenovo plassembler raven myloasm; do
+    for i in 01 02 03 04; do
+        autocycler helper "$assembler" --reads "$Subsets"/sample_"$i".fastq --out_prefix assemblies/"$assembler"_"$i" --threads 16 --genome_size 600000 --read_type ont_r10
+    done
+done
+
+autocycler compress -i assemblies -a autocycler_out -t 16
+
+autocycler cluster -a autocycler_out --cutoff 0.2 --max_contigs 25 --min_assemblies 1
+
+for c in autocycler_out/clustering/qc_pass/cluster_*; do
+    autocycler trim -c "$c" --min_identity 0.75 --max_unitigs 5000 --mad 5.0 -t 16
+done
+
+for c in autocycler_out/clustering/qc_pass/cluster_*; do
+    autocycler resolve -c "$c"
+done
+
+autocycler combine -a autocycler_out -i autocycler_out/clustering/qc_pass/cluster_*/5_final.gfa --reads Reads_95.fq --depth_kmer 19 -t 16
+
+autocycler table > metrics.tsv  # create the TSV header
+for sample in .; do
+    autocycler table -a "$sample" -n "$sample" >> metrics.tsv  # append a TSV row
+done
+```
+```bash
+module load gnuplot/6.0.0-gcc-12.3.0-637ora5
+module load apptainer/1.4.1-gcc-13.3.0-3coysxn
+
+for Dir in /data/users/theaven/phytolasma/raw_data/minion/19A-F06/autocycler/autocycler_out; do
+cd "$Dir"
+Query=consensus_assembly.fasta
+reference=consensus_assembly.fasta
+name=$(echo "$Dir" | cut -d '/' -f8,10 | sed 's@/@_@g')-ragtag_v_$(echo "$Dir" | cut -d '/' -f8,10 | sed 's@/@-@g')-ragtag
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/GCF_000026205.1_Phytoplasma_mali/GCF_000026205.1_Phytoplasma_mali.fna
+name=GCF_000026205_v_$(echo "$Dir" | cut -d '/' -f8,10 | sed 's@/@-@g')-ragtag
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/raw_data/minion/19A/assembly/EPI2ME/phyto-noref/ragtag/ragtag_scaffold/ragtag.scaffold.fasta
+name=19A-phyto-noref-rag-scaf_v_$(echo "$Dir" | cut -d '/' -f8,10 | sed 's@/@-@g')-ragtag
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+reference=/data/users/theaven/phytolasma/GCA_050928165.1_ASM5092816v1_genomic.fna
+name=carsonella-GCA_050928165.1_v_$(echo "$Dir" | cut -d '/' -f8,10 | sed 's@/@-@g')-ragtag
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 nucmer -p "$name" "$reference" "$Query"
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -l -c -t svg "$name".delta -p "$name"
+gnuplot "$name".gp
+
+apptainer exec --bind /data:/data --bind /home/clusterusers/theaven:/home/clusterusers/theaven /data/users/theaven/mummer4_4.0.1--pl5321h9948957_0 mummerplot -color "$name".delta -t svg -p "$name"_x
+gnuplot "$name"_x.gp
+
+done
+```
+```bash
+for reads in $(find /data/users/theaven/phytolasma/raw_data/minion/19A-F06/autocycler/autocycler_out/ -name 'consensus_assembly.fasta' -type f); do
+  Task=kraken
+  ID=$(echo $reads | cut -d '/' -f8,10 | sed 's@/@_@g')
+  Database=/data/databases/kraken2/2025-02-04/k2_core_nt_20250609
+  OutDir="$(dirname $reads)"/"$Task"
+  ExpectedOutput="$OutDir"/report_nt.txt
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_kraken.sh "$reads" "$OutDir" "$Database")
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done
+```
+## Sample 82A
+
+### Basecalling
+
+```bash
+mkdir -p /data/users/theaven/phytolasma/raw_data/minion/82A/pod5/1 
+
+ln -s /data/users/theaven/phytolasma/raw_data/minion/82A/20261019_TOMH_CaMali_82A_1/82a/20261019_1935_MN41812_FBH58480_8142963d/pod5/*.pod5 /data/users/theaven/phytolasma/raw_data/minion/82A/pod5/1/.
+
+for Dir in $(ls -d /data/users/theaven/phytolasma/raw_data/minion/82A/pod5/*); do
+  Task=Dorado
+  InDir="$Dir"
+  OutDir=$Dir/basecalls
+  OutFmt=fastq
+  Barcode=NA
+  Modification_model=NA
+  ExpectedOutput="$OutDir"/out.fastq
+
+  if [ ! -s "$ExpectedOutput" ]; then
+    jobid=$(sbatch --job-name="$Task" --parsable ~/git_repos/Wrappers/unibz/run_dorado.sh "$InDir" "$OutDir" "$OutFmt" "$Barcode" "$Modification_model")
+    printf "%s\t%s\t "$Task" \t%s\n" "$(date -Iseconds)" "$ID" "$jobid" >> /home/clusterusers/theaven/slurm_log.tsv
+  else
+    echo "For $ID found: $ExpectedOutput" 
+  fi
+done
+
+#Save space:
+rm -r /data/users/theaven/phytolasma/raw_data/minion/82A/20261019_TOMH_CaMali_82A_1
 ```
 
 # Re-Sequencing of Erika samples <a name="72"></a>
